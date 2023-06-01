@@ -56,5 +56,14 @@ int main() {
     printf("Transpose of a:\n");
     displayMatrixD(at);
 
+    MatrixD *q = malloc(sizeof(MatrixD));
+    MatrixD *r = malloc(sizeof(MatrixD));
+    qrDecompositionMatrixD(a, q, r);
+    printf("QR Decomposition:\n");
+    printf("Q = \n");
+    displayMatrixD(*q);
+    printf("R = \n");
+    displayMatrixD(*r);
+
     return 0;
 }

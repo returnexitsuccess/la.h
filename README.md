@@ -13,6 +13,7 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [x] Row Reduction
 - [x] Matrix Inverse
 - [x] Transpose
+- [x] QR Decomposition
 - [ ] Solving Linear Systems
 - [ ] Eigenvalues
 - [ ] Eigenvectors

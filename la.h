@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <float.h>
+#include <math.h>
 
 typedef struct {
     size_t rows;
@@ -29,6 +30,7 @@ void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
 MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
+void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
@@ -355,4 +357,52 @@ MatrixD transposeMatrixD(MatrixD m) {
     }
 
     return a;
+}
+
+double normMatrixD(MatrixD m) {
+    double sum = 0;
+    for (size_t i = 0; i < m.rows; ++i) {
+        for (size_t j = 0; j < m.cols; ++j) {
+            sum += m.matrix[i][j] * m.matrix[i][j];
+        }
+    }
+
+    return sqrt(sum);
+}
+
+void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
+    size_t t = (m.rows > m.cols) ? m.cols : m.rows; // minimum
+
+    MatrixD mprime = copyMatrixD(m);
+    *q = identityMatrixD(m.rows);
+    *r = m;
+    for (size_t i = 0; i < t; ++i) {
+        MatrixD x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
+
+        double alpha = normMatrixD(x);
+        if (x.matrix[0][0] >= 0) alpha *= -1;
+
+        MatrixD e1 = newMatrixD(mprime.rows, 1);
+        e1.matrix[0][0] = 1;
+
+        MatrixD u = addMatrixD(x, scaleMatrixD(-alpha, e1));
+        MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
+
+        MatrixD qprime = addMatrixD(identityMatrixD(mprime.rows), scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v))));
+
+        MatrixD Qi = newMatrixD(m.rows, m.rows);
+        for (size_t j = 0; j < i; ++j) {
+            Qi.matrix[j][j] = 1;
+        }
+        for (size_t j = i; j < m.rows; ++j) {
+            for (size_t k = i; k < m.rows; ++k) {
+                Qi.matrix[j][k] = qprime.matrix[j-i][k-i];
+            }
+        }
+
+        *q = multiplyMatrixD(*q, Qi);
+        *r = multiplyMatrixD(Qi, *r);
+
+        mprime = _submatrixMatrixD(*r, i + 1, i + 1, m.rows - i - 1, m.rows - i - 1);
+    }
 }
