@@ -28,6 +28,7 @@ MatrixD reducedEchelonMatrixD(MatrixD m);
 void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
 MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
+MatrixD transposeMatrixD(MatrixD m);
 
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
@@ -338,6 +339,18 @@ MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size
     for (size_t i = 0; i < height; ++i) {
         for (size_t j = 0; j < width; ++j) {
             a.matrix[i][j] = m.matrix[row + i][col + j];
+        }
+    }
+
+    return a;
+}
+
+MatrixD transposeMatrixD(MatrixD m) {
+    MatrixD a = newMatrixD(m.cols, m.rows);
+
+    for (size_t i = 0; i < a.rows; ++i) {
+        for (size_t j = 0; j < a.cols; ++j) {
+            a.matrix[i][j] = m.matrix[j][i];
         }
     }
 

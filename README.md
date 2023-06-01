@@ -12,11 +12,11 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [x] Determinant (n! & n^3)
 - [x] Row Reduction
 - [x] Matrix Inverse
+- [x] Transpose
 - [ ] Solving Linear Systems
 - [ ] Eigenvalues
 - [ ] Eigenvectors
 - [ ] Diagonalization
-- [ ] Transpose
 - [ ] Alternate types (currently only double)
 
 

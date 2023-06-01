@@ -52,5 +52,9 @@ int main() {
     printf("Inverse of a:\n");
     displayMatrixD(ainv);
 
+    MatrixD at = transposeMatrixD(a);
+    printf("Transpose of a:\n");
+    displayMatrixD(at);
+
     return 0;
 }
