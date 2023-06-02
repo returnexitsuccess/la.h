@@ -65,11 +65,41 @@ int main() {
     printf("R = \n");
     displayMatrixD(*r);
 
+/*
     MatrixD *p = malloc(sizeof(MatrixD));
     MatrixD *d = malloc(sizeof(MatrixD));
     qrAlgorithmMatrixD(a, 10, d, p); // not producing upper triangular d
     displayMatrixD(*d);
     displayMatrixD(*p);
+*/
+
+    printf("----------------------------------------\n\n");
+
+    MatrixD *x = malloc(sizeof(MatrixD));
+    MatrixD *N = malloc(sizeof(MatrixD));
+    MatrixD A = appendMatrixD(a, b);
+    printf("A = \n");
+    displayMatrixD(A);
+
+    MatrixD e1 = newMatrixD(A.rows, 1);
+    e1.matrix[0][0] = 1;
+
+    printf("Solving Ax = e1:\n");
+
+    int dims = solveLinearMatrixD(A, e1, x, N);
+
+    printf("Solution space has dimension %d\n\n", dims);
+    if (dims >= 0) {
+        printf("Particular Solution:\n");
+        displayMatrixD(*x);
+    }
+    if (dims > 0) {
+        printf("Homogeneous Solution Space:\n");
+        displayMatrixD(*N);
+    }
+    if (dims == -1) {
+        printf("No solution\n");
+    }
 
     return 0;
 }

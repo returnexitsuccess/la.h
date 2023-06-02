@@ -431,3 +431,67 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
     free(q);
     free(r);
 }
+
+// Solve Ax = b, the columns of N form a basis for the null space of A
+// Function returns the dimension of the solution space, -1 if there is no solution
+int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
+    if (A.rows != b.rows || b.cols != 1) {
+        fprintf(stderr, "Error: Cannot solve Ax=b with A of shape (%lu, %lu) and b of shape (%lu, %lu)\n", A.rows, A.cols, b.rows, b.cols);
+        exit(1);
+    }
+
+    MatrixD augmented = appendMatrixD(A, b);
+    augmented = reducedEchelonMatrixD(augmented);
+
+    MatrixD sol = newMatrixD(A.cols, 1);
+    MatrixD null;
+    size_t pivots = augmented.rows;
+    bool foundPivot;
+    size_t lastNullColumn;
+    size_t lastPivotColumn = augmented.cols - 1;
+    size_t *freeColumns = malloc(sizeof(size_t) * (A.cols));
+    for (int i = augmented.rows - 1; i >= 0; --i) {
+        // look for pivot
+        foundPivot = false;
+        for (size_t j = i; j < augmented.cols; ++j) {
+            if (j == augmented.cols - 1) {
+                if (augmented.matrix[i][j] != 0 && !foundPivot) {
+                    // inconsistent
+                    return -1;
+                } else if (!foundPivot) {
+                    // row of all zeros
+                    pivots--;
+                    break;
+                } else {
+                    break;
+                }
+            }
+            if (augmented.matrix[i][j] != 0) {
+                if (!foundPivot) {
+                    // found pivot
+                    foundPivot = true;
+                    if (i == pivots - 1) {
+                        // first row from the bottom with a pivot
+                        // null space is A.cols - pivots
+                        null = newMatrixD(A.cols, A.cols - pivots);
+                        lastNullColumn = A.cols - pivots;
+                    }
+                    sol.matrix[j][0] = augmented.matrix[i][augmented.cols - 1];
+                    for (size_t k = lastPivotColumn - 1; k > j; --k) {
+                        lastNullColumn--;
+                        null.matrix[k][lastNullColumn] = 1;
+                        freeColumns[k] = lastNullColumn;
+                    }
+                    lastPivotColumn = j;
+                } else {
+                    null.matrix[lastPivotColumn][freeColumns[j]] = -augmented.matrix[i][j];
+                }
+            }
+        }
+    }
+
+    *x = sol;
+    *N = null;
+
+    return null.cols;
+}
