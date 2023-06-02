@@ -59,11 +59,17 @@ int main() {
     MatrixD *q = malloc(sizeof(MatrixD));
     MatrixD *r = malloc(sizeof(MatrixD));
     qrDecompositionMatrixD(a, q, r);
-    printf("QR Decomposition:\n");
+    printf("QR Decomposition of a:\n");
     printf("Q = \n");
     displayMatrixD(*q);
     printf("R = \n");
     displayMatrixD(*r);
+
+    MatrixD *p = malloc(sizeof(MatrixD));
+    MatrixD *d = malloc(sizeof(MatrixD));
+    qrAlgorithmMatrixD(a, 10, d, p); // not producing upper triangular d
+    displayMatrixD(*d);
+    displayMatrixD(*p);
 
     return 0;
 }

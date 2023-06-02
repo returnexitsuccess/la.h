@@ -31,6 +31,7 @@ MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
+void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
@@ -405,4 +406,28 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
 
         mprime = _submatrixMatrixD(*r, i + 1, i + 1, m.rows - i - 1, m.rows - i - 1);
     }
+}
+
+// TODO: Add order reduction after convergence check
+void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
+    if (m.rows != m.cols) {
+        fprintf(stderr, "Error: Cannot perform QR Algorithm on non-square matrix of shape (%lu, %lu)\n", m.rows, m.cols);
+        exit(1);
+    }
+
+    MatrixD *q = malloc(sizeof(MatrixD));
+    MatrixD *r = malloc(sizeof(MatrixD));
+
+    *d = m;
+    *p = identityMatrixD(m.rows);
+    for (size_t i = 0; i < iterations; ++i) {
+        double lambda = d->matrix[d->rows - 1][d->cols - 1]; // Rayleigh shift
+        
+        qrDecompositionMatrixD(addMatrixD(*d, scaleMatrixD(-lambda, identityMatrixD(d->rows))), q, r);
+        *d = addMatrixD(multiplyMatrixD(*r, *q), scaleMatrixD(lambda, identityMatrixD(d->rows)));
+        *p = multiplyMatrixD(*p, *q);
+    }
+
+    free(q);
+    free(r);
 }
