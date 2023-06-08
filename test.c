@@ -65,13 +65,16 @@ int main() {
     printf("R = \n");
     displayMatrixD(*r);
 
-/*
+
     MatrixD *p = malloc(sizeof(MatrixD));
     MatrixD *d = malloc(sizeof(MatrixD));
-    qrAlgorithmMatrixD(a, 10, d, p); // not producing upper triangular d
+    qrAlgorithmMatrixD(a, 100, d, p); // not producing upper triangular d
+    printf("QR Algorithm:\n");
+    printf("A is similar to:\n");
     displayMatrixD(*d);
+    printf("by orthogonal matrix:\n");
     displayMatrixD(*p);
-*/
+
 
     printf("----------------------------------------\n\n");
 

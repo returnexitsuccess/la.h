@@ -32,6 +32,7 @@ MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size
 MatrixD transposeMatrixD(MatrixD m);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
+int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
 
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
@@ -381,15 +382,20 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
         MatrixD x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
 
         double alpha = normMatrixD(x);
-        if (x.matrix[0][0] >= 0) alpha *= -1;
+        MatrixD qprime;
+        if (fabs(alpha) > 1e-100) {
+            if (x.matrix[0][0] >= 0) alpha *= -1;
 
-        MatrixD e1 = newMatrixD(mprime.rows, 1);
-        e1.matrix[0][0] = 1;
+            MatrixD e1 = newMatrixD(mprime.rows, 1);
+            e1.matrix[0][0] = 1;
 
-        MatrixD u = addMatrixD(x, scaleMatrixD(-alpha, e1));
-        MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
+            MatrixD u = addMatrixD(x, scaleMatrixD(-alpha, e1));
+            MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
 
-        MatrixD qprime = addMatrixD(identityMatrixD(mprime.rows), scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v))));
+            qprime = addMatrixD(identityMatrixD(mprime.rows), scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v))));
+        } else {
+            qprime = identityMatrixD(mprime.rows);
+        }
 
         MatrixD Qi = newMatrixD(m.rows, m.rows);
         for (size_t j = 0; j < i; ++j) {
@@ -408,7 +414,6 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
     }
 }
 
-// TODO: Add order reduction after convergence check
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
     if (m.rows != m.cols) {
         fprintf(stderr, "Error: Cannot perform QR Algorithm on non-square matrix of shape (%lu, %lu)\n", m.rows, m.cols);
@@ -420,12 +425,74 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
 
     *d = m;
     *p = identityMatrixD(m.rows);
+
+    size_t blocksize = 1;
     for (size_t i = 0; i < iterations; ++i) {
-        double lambda = d->matrix[d->rows - 1][d->cols - 1]; // Rayleigh shift
-        
-        qrDecompositionMatrixD(addMatrixD(*d, scaleMatrixD(-lambda, identityMatrixD(d->rows))), q, r);
-        *d = addMatrixD(multiplyMatrixD(*r, *q), scaleMatrixD(lambda, identityMatrixD(d->rows)));
-        *p = multiplyMatrixD(*p, *q);
+
+        bool converged = true;
+
+        // check if complex eigenvalues in lower right 2x2 block
+        double trace = d->matrix[d->rows - 2][d->cols - 2] + d->matrix[d->rows - 1][d->cols - 1];
+        double det = d->matrix[d->rows - 2][d->cols - 2] * d->matrix[d->rows - 1][d->cols - 1] - d->matrix[d->rows - 2][d->cols - 1] * d->matrix[d->rows - 1][d->cols - 2];
+        if (trace * trace < 4 * det) {
+            // complex eigenvalues
+            // double implicit shift strategy
+            MatrixD M = addMatrixD(multiplyMatrixD(*d, *d), addMatrixD(scaleMatrixD(-trace, *d), scaleMatrixD(det, identityMatrixD(d->rows))));
+            qrDecompositionMatrixD(M, q, r);
+            *d = multiplyMatrixD(transposeMatrixD(*q), multiplyMatrixD(*d, *q));
+            *p = multiplyMatrixD(*p, *q);
+
+            blocksize = 2;
+
+            for (size_t j = 0; j < d->cols - 2; ++j) {
+                converged = converged && (fabs(d->matrix[d->rows - 2][j]) < 1e-100);
+                converged = converged && (fabs(d->matrix[d->rows - 1][j]) < 1e-100);
+            }
+
+            if (converged) {
+                //printf("2: Exited early at iteration %lu for stage %lu\n", i, d->rows);
+                break;
+            }
+        } else {
+            double lambda = d->matrix[d->rows - 1][d->cols - 1]; // Rayleigh shift
+            
+            qrDecompositionMatrixD(addMatrixD(*d, scaleMatrixD(-lambda, identityMatrixD(d->rows))), q, r);
+            *d = addMatrixD(multiplyMatrixD(*r, *q), scaleMatrixD(lambda, identityMatrixD(d->rows)));
+            *p = multiplyMatrixD(*p, *q);
+
+            blocksize = 1;
+
+            for (size_t j = 0; j < d->cols - 1; ++j) {
+                converged = converged && (fabs(d->matrix[d->rows - 1][j]) < 1e-100);
+            }
+
+            if (converged) {
+                //printf("1: Exited early at iteration %lu for stage %lu\n", i, d->rows);
+                break;
+            }
+        }
+    }
+
+    if (m.rows > 1 + blocksize) {
+        MatrixD mi = _submatrixMatrixD(*d, 0, 0, m.rows - blocksize, m.cols - blocksize);
+        MatrixD *di = malloc(sizeof(MatrixD));
+        MatrixD *pi = malloc(sizeof(MatrixD));
+        qrAlgorithmMatrixD(mi, iterations, di, pi);
+
+        MatrixD piFull = newMatrixD(m.rows, m.cols);
+        for (size_t i = 0; i < m.rows - blocksize; ++i) {
+            for (size_t j = 0; j < m.cols - blocksize; ++j) {
+                piFull.matrix[i][j] = pi->matrix[i][j];
+            }
+        }
+        for (size_t i = m.rows - blocksize; i < m.rows; ++i) {
+            piFull.matrix[i][i] = 1;
+        }
+        *d = multiplyMatrixD(transposeMatrixD(piFull), multiplyMatrixD(*d, piFull));
+        *p = multiplyMatrixD(*p, piFull);
+
+        free(di);
+        free(pi);
     }
 
     free(q);
