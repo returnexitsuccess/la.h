@@ -104,5 +104,41 @@ int main() {
         printf("No solution\n");
     }
 
+
+    printf("----------------------------------------\n\n");
+
+    size_t dim = 100;
+    A = newMatrixD(dim, dim);
+    for (size_t i = 0; i < A.rows; ++i) {
+        for (size_t j = 0; j < A.cols; ++j) {
+            A.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+        }
+    }
+    
+    MatrixD B = newMatrixD(dim, dim);
+    for (size_t i = 0; i < B.rows; ++i) {
+        for (size_t j = 0; j < B.cols; ++j) {
+            B.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+        }
+    }
+
+    MatrixD C1 = multiplyMatrixD(A, B);
+
+    MatrixD C2 = strassenMultiplyMatrixD(A, B);
+
+    if (equalsMatrixD(C1, C2)) {
+        printf("Equal\n");
+    } else {
+        printf("Not Equal\n");
+        MatrixD Cdiff = addMatrixD(C1, scaleMatrixD(-1, C2));
+        double max = 0;
+        for (size_t i = 0; i < Cdiff.rows; ++i) {
+            for (size_t j = 0; j < Cdiff.cols; ++j) {
+                max = (fabs(Cdiff.matrix[i][j]) > max) ? fabs(Cdiff.matrix[i][j]) : max;
+            }
+        }
+        printf("Difference: %e\n", max);
+    }
+
     return 0;
 }

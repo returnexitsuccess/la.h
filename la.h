@@ -10,6 +10,14 @@ typedef struct {
     double** matrix;
 } MatrixD;
 
+typedef struct {
+    size_t rows;
+    size_t cols;
+    size_t rowOffset;
+    size_t colOffset;
+    double** matrix;
+} _BlockMatrixD;
+
 
 MatrixD newMatrixD(size_t rows, size_t cols);
 MatrixD identityMatrixD(size_t rows);
@@ -33,6 +41,15 @@ MatrixD transposeMatrixD(MatrixD m);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
+MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b);
+_BlockMatrixD _toBlockMatrixD(MatrixD m, size_t rows, size_t cols, size_t rowOffset, size_t colOffset);
+MatrixD _fromBlockMatrixD(_BlockMatrixD mBlock);
+_BlockMatrixD _addBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
+_BlockMatrixD _subtractBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
+void _updateAddBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b);
+void _updateSubtractBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b);
+_BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
+_BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
 
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
@@ -561,4 +578,308 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
     *N = null;
 
     return null.cols;
+}
+
+// Strassen Algorithm for square matrices (for now)
+MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b) {
+    if (a.rows != a.cols || b.rows != b.cols) {
+        fprintf(stderr, "Error: Cannot perform Strassen algorithm on non-square matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+        exit(1);
+    }
+
+    if (a.cols != b.rows) {
+        fprintf(stderr, "Error: Cannot perform Strassen algorithm on matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+        exit(1);
+    }
+
+    _BlockMatrixD A11 = _toBlockMatrixD(a, (a.rows + 1) / 2, (a.cols + 1) / 2, 0, 0);
+    _BlockMatrixD B11 = _toBlockMatrixD(b, (b.rows + 1) / 2, (b.cols + 1) / 2, 0, 0);
+
+    _BlockMatrixD A12 = _toBlockMatrixD(a, (a.rows + 1) / 2, a.cols / 2, 0, (a.cols + 1) / 2);
+    _BlockMatrixD B12 = _toBlockMatrixD(b, (b.rows + 1) / 2, b.cols / 2, 0, (b.cols + 1) / 2);
+
+    _BlockMatrixD A21 = _toBlockMatrixD(a, a.rows / 2, (a.cols + 1) / 2, (a.rows + 1) / 2, 0);
+    _BlockMatrixD B21 = _toBlockMatrixD(b, b.rows / 2, (b.cols + 1) / 2, (b.rows + 1) / 2, 0);
+
+    _BlockMatrixD A22 = _toBlockMatrixD(a, a.rows / 2, a.cols / 2, (a.rows + 1) / 2, (a.cols + 1) / 2);
+    _BlockMatrixD B22 = _toBlockMatrixD(b, b.rows / 2, b.cols / 2, (b.rows + 1) / 2, (b.cols + 1) / 2);
+
+    printf("Initialized blocks\n");
+
+    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A22), _addBlockMatrixD(B11, B22));
+    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A21, A22), B11);
+    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, _subtractBlockMatrixD(B12, B22));
+    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, _subtractBlockMatrixD(B21, B11));
+    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A12), B22);
+    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A21, A11), _addBlockMatrixD(B11, B12));
+    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A12, A22), _addBlockMatrixD(B21, B22));
+
+    printf("Computed Ms\n");
+
+    // C11 = M1 + M4 - M5 + M7
+    _BlockMatrixD C11 = _addBlockMatrixD(M1, M4);
+    _updateSubtractBlockMatrixD(&C11, M5);
+    _updateAddBlockMatrixD(&C11, M7);
+
+    // C12 = M3 + M5
+    _BlockMatrixD C12 = _addBlockMatrixD(M3, M5);
+
+    // C21 = M2 + M4
+    _BlockMatrixD C21 = _addBlockMatrixD(M2, M4);
+
+    // C22 = M1 - M2 + M3 + M6
+    _BlockMatrixD C22 = _subtractBlockMatrixD(M1, M2);
+    _updateAddBlockMatrixD(&C22, M3);
+    _updateAddBlockMatrixD(&C22, M6);
+
+    printf("Computed Cs\n");
+
+    MatrixD C = newMatrixD(a.rows, a.cols);
+
+    for (size_t i = 0; i < C.rows; ++i) {
+        for (size_t j = 0; j < C.cols; ++j) {
+            if (i < C11.rows) {
+                if (j < C11.cols) {
+                    C.matrix[i][j] = C11.matrix[i + C11.rowOffset][j + C11.colOffset];
+                } else {
+                    C.matrix[i][j] = C12.matrix[i + C12.rowOffset][j - C11.cols + C12.colOffset];
+                }
+            } else {
+                if (j < C21.cols) {
+                    C.matrix[i][j] = C21.matrix[i - C11.rows + C21.rowOffset][j + C21.colOffset];
+                } else {
+                    C.matrix[i][j] = C22.matrix[i - C11.rows + C22.rowOffset][j - C21.cols + C22.colOffset];
+                }
+            }
+        }
+    }
+
+    printf("Computed C\n");
+
+    return C;
+}
+
+_BlockMatrixD _toBlockMatrixD(MatrixD m, size_t rows, size_t cols, size_t rowOffset, size_t colOffset) {
+    if (rowOffset + rows > m.rows || colOffset + cols > m.cols) {
+        fprintf(stderr, "Error: Resulting _BlockMatrixD would overrun bounds of the array\n");
+        exit(1);
+    }
+    _BlockMatrixD mBlock = { rows, cols, rowOffset, colOffset, m.matrix };
+    return mBlock;
+}
+
+MatrixD _fromBlockMatrixD(_BlockMatrixD mBlock) {
+    double **matrix = malloc(sizeof(double*) * mBlock.rows);
+    for (size_t i = 0; i < mBlock.rows; ++i) {
+        matrix[i] = mBlock.matrix[i + mBlock.rowOffset] + mBlock.colOffset;
+    }
+
+    MatrixD m = { mBlock.rows, mBlock.cols, matrix };
+    return m;
+}
+
+_BlockMatrixD _addBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
+    printf("_addBlockMatrixD\n");
+    size_t rows = (a.rows > b.rows) ? a.rows : b.rows; // maximum
+    size_t cols = (a.cols > b.cols) ? a.cols : b.cols; // maximum
+
+    printf("a\n");
+    printf("%lu, %lu, %lu, %lu\n", a.rows, a.cols, a.rowOffset, a.colOffset);
+    displayMatrixD(_fromBlockMatrixD(a));
+    printf("b\n");
+    displayMatrixD(_fromBlockMatrixD(b));
+
+    double **matrix = malloc(sizeof(double*) * rows);
+    for (size_t i = 0; i < rows; ++i) {
+        matrix[i] = malloc(sizeof(double) * cols);
+        for (size_t j = 0; j < cols; ++j) {
+            if (i >= a.rows || j >= a.cols) {
+                matrix[i][j] = b.matrix[i + b.rowOffset][j + b.colOffset];
+            } else if (i >= b.rows || j >= b.cols) {
+                matrix[i][j] = a.matrix[i + a.rowOffset][j + a.colOffset];
+            } else {
+                matrix[i][j] = a.matrix[i + a.rowOffset][j + a.colOffset] + b.matrix[i + b.rowOffset][j + b.colOffset];
+            }
+        }
+    }
+
+    _BlockMatrixD c = { rows, cols, 0, 0, matrix };
+
+    printf("Exit _addBlockMatrixD\n");
+
+    return c;
+}
+
+_BlockMatrixD _subtractBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
+    printf("_subtractBlockMatrixD\n");
+    size_t rows = (a.rows > b.rows) ? a.rows : b.rows; // maximum
+    size_t cols = (a.cols > b.cols) ? a.cols : b.cols; // maximum
+
+    double **matrix = malloc(sizeof(double*) * rows);
+    for (size_t i = 0; i < rows; ++i) {
+        matrix[i] = malloc(sizeof(double) * cols);
+        for (size_t j = 0; j < cols; ++j) {
+            if (i >= a.rows || j >= a.cols) {
+                matrix[i][j] = -b.matrix[i + b.rowOffset][j + b.colOffset];
+            } else if (i >= b.rows || j >= b.cols) {
+                matrix[i][j] = a.matrix[i + a.rowOffset][j + a.colOffset];
+            } else {
+                matrix[i][j] = a.matrix[i + a.rowOffset][j + a.colOffset] - b.matrix[i + b.rowOffset][j + b.colOffset];
+            }
+        }
+    }
+
+    _BlockMatrixD c = { rows, cols, 0, 0, matrix };
+    return c;
+}
+
+// a = a + b
+void _updateAddBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b) {
+    if (a->rows < b.rows || a->cols < b.cols) {
+        fprintf(stderr, "Error: Cannot update add matrix of shape (%lu, %lu) with (%lu, %lu)\n", a->rows, a->cols, b.rows, b.cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < b.rows; ++i) {
+        for (size_t j = 0; j < b.cols; ++j) {
+            a->matrix[i + a->rowOffset][j + a->colOffset] += b.matrix[i + b.rowOffset][j + b.colOffset];
+        }
+    }
+}
+
+// a = a - b
+void _updateSubtractBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b) {
+    if (a->rows < b.rows || a->cols < b.cols) {
+        fprintf(stderr, "Error: Cannot update add matrix of shape (%lu, %lu) with (%lu, %lu)\n", a->rows, a->cols, b.rows, b.cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < b.rows; ++i) {
+        for (size_t j = 0; j < b.cols; ++j) {
+            a->matrix[i + a->rowOffset][j + a->colOffset] -= b.matrix[i + b.rowOffset][j + b.colOffset];
+        }
+    }
+}
+
+_BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
+    printf("_strassenMultiplyBlockMatrixD\n");
+    size_t rows = (a.rows > b.rows) ? a.rows : b.rows; // maximum
+    size_t cols = (a.cols > b.cols) ? a.cols : b.cols; // maximum
+    size_t dim = (rows > cols) ? rows : cols;
+
+    if (rows < 4 || cols < 4) {
+        return _multiplyBlockMatrixD(a, b);
+    }
+
+    printf("%lu, %lu, %lu, %lu\n", a.rows, a.cols, a.rowOffset, a.colOffset);
+
+    _BlockMatrixD A11 = { (dim + 1) / 2, (dim + 1) / 2, a.rowOffset, a.colOffset, a.matrix };
+    _BlockMatrixD B11 = { (dim + 1) / 2, (dim + 1) / 2, b.rowOffset, b.colOffset, b.matrix };
+
+    _BlockMatrixD A12 = { (dim + 1) / 2, a.cols - (dim + 1) / 2, a.rowOffset, a.colOffset + (dim + 1) / 2, a.matrix };
+    _BlockMatrixD B12 = { (dim + 1) / 2, b.cols - (dim + 1) / 2, b.rowOffset, b.colOffset + (dim + 1) / 2, b.matrix };
+
+    _BlockMatrixD A21 = { a.rows - (dim + 1) / 2, (dim + 1) / 2, a.rowOffset + (dim + 1) / 2, a.colOffset, a.matrix };
+    _BlockMatrixD B21 = { b.rows - (dim + 1) / 2, (dim + 1) / 2, b.rowOffset + (dim + 1) / 2, b.colOffset, b.matrix };
+
+    _BlockMatrixD A22 = { a.rows - (dim + 1) / 2, a.cols - (dim + 1) / 2, a.rowOffset + (dim + 1) / 2, a.colOffset + (dim + 1) / 2, a.matrix };
+    _BlockMatrixD B22 = { b.rows - (dim + 1) / 2, b.cols - (dim + 1) / 2, b.rowOffset + (dim + 1) / 2, b.colOffset + (dim + 1) / 2, b.matrix };
+
+    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A22), _addBlockMatrixD(B11, B22));
+    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A21, A22), B11);
+    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, _subtractBlockMatrixD(B12, B22));
+    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, _subtractBlockMatrixD(B21, B11));
+    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A12), B22);
+    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A21, A11), _addBlockMatrixD(B11, B12));
+    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A12, A22), _addBlockMatrixD(B21, B22));
+
+    // C11 = M1 + M4 - M5 + M7
+    _BlockMatrixD C11 = _addBlockMatrixD(M1, M4);
+    _updateSubtractBlockMatrixD(&C11, M5);
+    _updateAddBlockMatrixD(&C11, M7);
+
+    // C12 = M3 + M5
+    _BlockMatrixD C12 = _addBlockMatrixD(M3, M5);
+
+    // C21 = M2 + M4
+    _BlockMatrixD C21 = _addBlockMatrixD(M2, M4);
+
+    // C22 = M1 - M2 + M3 + M6
+    _BlockMatrixD C22 = _subtractBlockMatrixD(M1, M2);
+    _updateAddBlockMatrixD(&C22, M3);
+    _updateAddBlockMatrixD(&C22, M6);
+
+    double **matrix = malloc(sizeof(double*) * dim);
+    for (size_t i = 0; i < dim; ++i) {
+        matrix[i] = malloc(sizeof(double) * dim);
+        for (size_t j = 0; j < dim; ++j) {
+            if (i < C11.rows) {
+                if (j < C11.cols) {
+                    matrix[i][j] = C11.matrix[i + C11.rowOffset][j + C11.colOffset];
+                } else {
+                    matrix[i][j] = C12.matrix[i + C12.rowOffset][j - C11.cols + C12.colOffset];
+                }
+            } else {
+                if (j < C21.cols) {
+                    matrix[i][j] = C21.matrix[i - C11.rows + C21.rowOffset][j + C21.colOffset];
+                } else {
+                    matrix[i][j] = C22.matrix[i - C11.rows + C22.rowOffset][j - C21.cols + C22.colOffset];
+                }
+            }
+        }
+    }
+
+    _BlockMatrixD C = { dim, dim, 0, 0, matrix };
+
+    _BlockMatrixD Calt = _multiplyBlockMatrixD(a, b);
+    double max = 0;
+    for (size_t i = 0; i < C.rows; ++i) {
+        for (size_t j = 0; j < C.cols; ++j) {
+            max = (fabs(C.matrix[i][j] - Calt.matrix[i][j]) > max) ? fabs(C.matrix[i][j] - Calt.matrix[i][j]) : max;
+        }
+    }
+    printf("(%lu, %lu) difference: %e\n", C.rows, C.cols, max);
+
+    if (max > 1) {
+        displayMatrixD(_fromBlockMatrixD(a));
+        displayMatrixD(_fromBlockMatrixD(A11));
+        displayMatrixD(_fromBlockMatrixD(A12));
+        displayMatrixD(_fromBlockMatrixD(A21));
+        displayMatrixD(_fromBlockMatrixD(A22));
+        displayMatrixD(_fromBlockMatrixD(C));
+        displayMatrixD(_fromBlockMatrixD(Calt));
+        exit(1);
+    }
+
+    return C;
+}
+
+_BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
+    printf("_multiplyBlockMatrixD\n");
+    size_t rows = (a.rows > b.rows) ? a.rows : b.rows; // maximum
+    size_t cols = (a.cols > b.cols) ? a.cols : b.cols; // maximum
+    size_t dim = (rows > cols) ? rows : cols;
+
+    double **matrix = malloc(sizeof(double*) * dim);
+    for (size_t i = 0; i < dim; ++i) {
+        matrix[i] = malloc(sizeof(double) * dim);
+        for (size_t j = 0; j < dim; ++j) {
+            if (i >= a.rows) {
+                matrix[i][j] = 0;
+            } else if (j >= b.cols) {
+                matrix[i][j] = 0;
+            } else {
+                double sum = 0;
+                for (size_t k = 0; k < dim; ++k) {
+                    if (k < a.cols && k < b.rows) {
+                        sum += a.matrix[i + a.rowOffset][k + a.colOffset] * b.matrix[k + b.rowOffset][j + b.colOffset];
+                    }
+                }
+                matrix[i][j] = sum;
+            }
+        }
+    }
+
+    _BlockMatrixD c = { dim, dim, 0, 0, matrix };
+    return c;
 }
