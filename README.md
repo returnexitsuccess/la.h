@@ -16,10 +16,14 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [x] QR Decomposition
 - [x] QR Algorithm
 - [x] Solving Linear Systems
+- [x] Strassen Algorithm
 - [ ] Eigenvalues
 - [ ] Eigenvectors
 - [ ] Diagonalization
 - [ ] Alternate types (currently only double)
+- [ ] Singular Value Decomposition
+- [ ] Cholesky Decomposition
+- [ ] LU Decomposition
 
 
 ## Output of test.c
@@ -143,4 +147,37 @@ Homogeneous Solution Space:
 0.000000 0.000000 1.000000 0.000000 0.000000
 0.000000 0.000000 0.000000 1.000000 0.000000
 0.000000 0.000000 0.000000 0.000000 1.000000
+
+----------------------------------------
+
+Regular Multiplication vs. Strassen Multiplication
+--------------------
+64 x 64
+Difference: 1.065814e-14
+0.000913 | 0.000797
+--------------------
+128 x 128
+Difference: 1.421085e-14
+0.006171 | 0.005577
+--------------------
+256 x 256
+Difference: 4.796163e-14
+0.049315 | 0.040961
+--------------------
+512 x 512
+Difference: 1.545430e-13
+0.394222 | 0.290294
+--------------------
+1024 x 1024
+Difference: 4.822809e-13
+3.224282 | 2.075273
+--------------------
+2048 x 2048
+Difference: 1.747047e-12
+45.349824 | 14.563383
+--------------------
+4096 x 4096
+Difference: 6.304735e-12
+423.989535 | 110.076392
+--------------------
 ```

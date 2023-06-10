@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <time.h>
 #include "la.h"
 
 int main() {
@@ -107,29 +108,34 @@ int main() {
 
     printf("----------------------------------------\n\n");
 
-    size_t dim = 100;
-    A = newMatrixD(dim, dim);
-    for (size_t i = 0; i < A.rows; ++i) {
-        for (size_t j = 0; j < A.cols; ++j) {
-            A.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+    printf("Regular Multiplication vs. Strassen Multiplication\n");
+    printf("--------------------\n");
+
+    MatrixD B;
+
+    size_t maxDim = 1024; // Set to 4096 takes ~10 minutes
+    for (size_t dim = 64; dim <= maxDim; dim *= 2) {
+        A = newMatrixD(dim, dim);
+        for (size_t i = 0; i < A.rows; ++i) {
+            for (size_t j = 0; j < A.cols; ++j) {
+                A.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+            }
         }
-    }
-    
-    MatrixD B = newMatrixD(dim, dim);
-    for (size_t i = 0; i < B.rows; ++i) {
-        for (size_t j = 0; j < B.cols; ++j) {
-            B.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+        
+        B = newMatrixD(dim, dim);
+        for (size_t i = 0; i < B.rows; ++i) {
+            for (size_t j = 0; j < B.cols; ++j) {
+                B.matrix[i][j] = 2 * ((double) rand() / RAND_MAX) - 1;
+            }
         }
-    }
 
-    MatrixD C1 = multiplyMatrixD(A, B);
+        clock_t t1, t2, t3;
+        t1 = clock();
+        MatrixD C1 = multiplyMatrixD(A, B);
+        t2 = clock();
+        MatrixD C2 = strassenMultiplyMatrixD(A, B);
+        t3 = clock();
 
-    MatrixD C2 = strassenMultiplyMatrixD(A, B);
-
-    if (equalsMatrixD(C1, C2)) {
-        printf("Equal\n");
-    } else {
-        printf("Not Equal\n");
         MatrixD Cdiff = addMatrixD(C1, scaleMatrixD(-1, C2));
         double max = 0;
         for (size_t i = 0; i < Cdiff.rows; ++i) {
@@ -137,7 +143,10 @@ int main() {
                 max = (fabs(Cdiff.matrix[i][j]) > max) ? fabs(Cdiff.matrix[i][j]) : max;
             }
         }
+        printf("%lu x %lu\n", dim, dim);
         printf("Difference: %e\n", max);
+        printf("%f | %f\n", ((double) t2 - t1) / CLOCKS_PER_SEC, ((double) t3 - t2) / CLOCKS_PER_SEC);
+        printf("--------------------\n");
     }
 
     return 0;
