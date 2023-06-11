@@ -26,7 +26,7 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [ ] LU Decomposition
 
 
-## Output of test.c
+## Output of example.c
 
 ```
 a =
