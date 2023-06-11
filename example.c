@@ -80,7 +80,9 @@ int main() {
     printf("----------------------------------------\n\n");
 
     MatrixD *x = malloc(sizeof(MatrixD));
+    *x = newMatrixD(0, 0);
     MatrixD *N = malloc(sizeof(MatrixD));
+    *N = newMatrixD(0, 0);
     MatrixD A = appendMatrixD(a, b);
     printf("A = \n");
     displayMatrixD(A);
@@ -111,7 +113,8 @@ int main() {
     printf("Regular Multiplication vs. Strassen Multiplication\n");
     printf("--------------------\n");
 
-    MatrixD B;
+    freeMatrixD(&A);
+    MatrixD B, C1, C2, Cdiff;
 
     size_t maxDim = 1024; // Set to 4096 takes ~10 minutes
     for (size_t dim = 64; dim <= maxDim; dim *= 2) {
@@ -131,12 +134,12 @@ int main() {
 
         clock_t t1, t2, t3;
         t1 = clock();
-        MatrixD C1 = multiplyMatrixD(A, B);
+        C1 = multiplyMatrixD(A, B);
         t2 = clock();
-        MatrixD C2 = strassenMultiplyMatrixD(A, B);
+        C2 = strassenMultiplyMatrixD(A, B);
         t3 = clock();
 
-        MatrixD Cdiff = addMatrixD(C1, scaleMatrixD(-1, C2));
+        Cdiff = addMatrixD(C1, scaleMatrixD(-1, C2));
         double max = 0;
         for (size_t i = 0; i < Cdiff.rows; ++i) {
             for (size_t j = 0; j < Cdiff.cols; ++j) {
@@ -145,9 +148,37 @@ int main() {
         }
         printf("%lu x %lu\n", dim, dim);
         printf("Difference: %e\n", max);
-        printf("%f | %f\n", ((double) t2 - t1) / CLOCKS_PER_SEC, ((double) t3 - t2) / CLOCKS_PER_SEC);
+        printf("%f | %f\n", (double) (t2 - t1) / CLOCKS_PER_SEC, (double) (t3 - t2) / CLOCKS_PER_SEC);
         printf("--------------------\n");
+
+        freeMatrixD(&A);
+        freeMatrixD(&B);
+        freeMatrixD(&C1);
+        freeMatrixD(&C2);
+        freeMatrixD(&Cdiff);
     }
+
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+    freeMatrixD(&m);
+    freeMatrixD(&a_echelon);
+    freeMatrixD(&ainv);
+    freeMatrixD(&at);
+
+    freeMatrixD(q);
+    freeMatrixD(r);
+    freeMatrixD(p);
+    freeMatrixD(d);
+    freeMatrixD(x);
+    freeMatrixD(N);
+    free(q);
+    free(r);
+    free(p);
+    free(d);
+    free(x);
+    free(N);
+
+    freeMatrixD(&e1);
 
     return 0;
 }

@@ -38,6 +38,7 @@ void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
 MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
+double normMatrixD(MatrixD m);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
@@ -59,6 +60,14 @@ MatrixD newMatrixD(size_t rows, size_t cols) {
     }
     MatrixD m = {rows, cols, mat};
     return m;
+}
+
+void freeMatrixD(MatrixD *a) {
+    for (size_t i = 0; i < a->rows; ++i) {
+        free(a->matrix[i]);
+    }
+    free(a->matrix);
+    a->matrix = NULL;
 }
 
 MatrixD identityMatrixD(size_t rows) {
@@ -318,6 +327,7 @@ MatrixD reducedEchelonMatrixD(MatrixD m) {
             for (size_t i = 0; i < a.rows; ++i) {
                 if (i == pivots) continue;
                 _rowAdditionMatrixD(&a, -a.matrix[i][col], pivots, i);
+                a.matrix[i][col] = 0; // manually set to avoid error
             }
             pivots++;
         }
@@ -508,6 +518,7 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
         *d = multiplyMatrixD(transposeMatrixD(piFull), multiplyMatrixD(*d, piFull));
         *p = multiplyMatrixD(*p, piFull);
 
+        freeMatrixD(&mi);
         free(di);
         free(pi);
     }
@@ -534,12 +545,12 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
     size_t lastNullColumn;
     size_t lastPivotColumn = augmented.cols - 1;
     size_t *freeColumns = malloc(sizeof(size_t) * (A.cols));
-    for (int i = augmented.rows - 1; i >= 0; --i) {
+    for (int i = (int) augmented.rows - 1; i >= 0; --i) {
         // look for pivot
         foundPivot = false;
-        for (size_t j = i; j < augmented.cols; ++j) {
+        for (size_t j = (size_t) i; j < augmented.cols; ++j) {
             if (j == augmented.cols - 1) {
-                if (augmented.matrix[i][j] != 0 && !foundPivot) {
+                if ((fabs(augmented.matrix[i][j]) >= DBL_EPSILON) && !foundPivot) {
                     // inconsistent
                     return -1;
                 } else if (!foundPivot) {
@@ -550,11 +561,11 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
                     break;
                 }
             }
-            if (augmented.matrix[i][j] != 0) {
+            if (fabs(augmented.matrix[i][j]) >= DBL_EPSILON) {
                 if (!foundPivot) {
                     // found pivot
                     foundPivot = true;
-                    if (i == pivots - 1) {
+                    if (i == (int) pivots - 1) {
                         // first row from the bottom with a pivot
                         // null space is A.cols - pivots
                         null = newMatrixD(A.cols, A.cols - pivots);
@@ -577,7 +588,7 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
     *x = sol;
     *N = null;
 
-    return null.cols;
+    return (int) null.cols;
 }
 
 // Strassen Algorithm for square matrices (for now)
