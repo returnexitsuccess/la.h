@@ -4,6 +4,10 @@
 #include <float.h>
 #include <math.h>
 
+#define ONE_NORM 0
+#define TWO_NORM 1
+#define INF_NORM 2
+
 typedef struct {
     size_t rows;
     size_t cols;
@@ -46,7 +50,7 @@ void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
 MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
-double normMatrixD(MatrixD m);
+double normMatrixD(MatrixD m, int norm_type);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
@@ -509,15 +513,30 @@ MatrixD transposeMatrixD(MatrixD m) {
     return a;
 }
 
-double normMatrixD(MatrixD m) {
+double normMatrixD(MatrixD m, int norm_type) {
     double sum = 0;
-    for (size_t i = 0; i < m.rows; ++i) {
-        for (size_t j = 0; j < m.cols; ++j) {
-            sum += m.matrix[i][j] * m.matrix[i][j];
+    if (norm_type == ONE_NORM) {
+        for (size_t i = 0; i < m.rows; ++i) {
+            for (size_t j = 0; j < m.cols; ++j) {
+                sum += fabs(m.matrix[i][j]);
+            }
+        }
+    } else if (norm_type == TWO_NORM) {
+        for (size_t i = 0; i < m.rows; ++i) {
+            for (size_t j = 0; j < m.cols; ++j) {
+                sum += m.matrix[i][j] * m.matrix[i][j];
+            }
+        }
+        sum = sqrt(sum);
+    } else if (norm_type == INF_NORM) {
+        for (size_t i = 0; i < m.rows; ++i) {
+            for (size_t j = 0; j < m.cols; ++j) {
+                if (fabs(m.matrix[i][j]) > sum) sum = fabs(m.matrix[i][j]);
+            }
         }
     }
 
-    return sqrt(sum);
+    return sum;
 }
 
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
@@ -532,7 +551,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
     for (size_t i = 0; i < t; ++i) {
         x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
 
-        double alpha = normMatrixD(x);
+        double alpha = normMatrixD(x, TWO_NORM);
         if (fabs(alpha) > 1e-100) {
             qprime = newMatrixD(mprime.rows, mprime.rows);
             if (x.matrix[0][0] >= 0) alpha *= -1;
@@ -543,7 +562,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
 
             MatrixD u = newMatrixD(mprime.rows, 1);
             addMatrixD(&u, &x, &e1);
-            scaleMatrixD(&u, 1 / normMatrixD(u), &u);
+            scaleMatrixD(&u, 1 / normMatrixD(u, TWO_NORM), &u);
 
             outerProductMatrixD(&qprime, &u, &u);
             scaleMatrixD(&qprime, -2, &qprime);

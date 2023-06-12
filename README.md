@@ -18,7 +18,7 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [x] QR Algorithm
 - [x] Solving Linear Systems
 - [x] Strassen Algorithm
-- [ ] Matrix Norms (1, 2, inf)
+- [x] Matrix Norms (1, 2, inf)
 - [ ] Eigenvalues
 - [ ] Eigenvectors
 - [ ] Diagonalization
