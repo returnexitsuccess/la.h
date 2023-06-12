@@ -23,7 +23,7 @@ MatrixD newMatrixD(size_t rows, size_t cols);
 MatrixD identityMatrixD(size_t rows);
 MatrixD copyMatrixD(MatrixD a);
 void displayMatrixD(MatrixD m);
-bool equalsMatrixD(MatrixD a, MatrixD b);
+bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance);
 MatrixD addMatrixD(MatrixD a, MatrixD b);
 MatrixD multiplyMatrixD(MatrixD a, MatrixD b);
 MatrixD scaleMatrixD(double k, MatrixD a);
@@ -98,12 +98,12 @@ void displayMatrixD(MatrixD m) {
     printf("\n");
 }
 
-bool equalsMatrixD(MatrixD a, MatrixD b) {
+bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance) {
     if (a.rows != b.rows || a.cols != b.cols) return false;
 
     for (size_t i = 0; i < a.rows; ++i) {
         for (size_t j = 0; j < a.cols; ++j) {
-            if (a.matrix[i][j] - b.matrix[i][j] <= DBL_EPSILON) return false;
+            if (fabs(a.matrix[i][j] - b.matrix[i][j]) > tolerance) return false;
         }
     }
 
