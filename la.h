@@ -547,6 +547,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
     *r = copyMatrixD(m);
 
     MatrixD qprime, x;
+    MatrixD Qi = newMatrixD(m.rows, m.rows);
 
     for (size_t i = 0; i < t; ++i) {
         x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
@@ -576,13 +577,19 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
             qprime = identityMatrixD(mprime.rows);
         }
 
-        MatrixD Qi = newMatrixD(m.rows, m.rows);
-        for (size_t j = 0; j < i; ++j) {
-            Qi.matrix[j][j] = 1;
-        }
-        for (size_t j = i; j < m.rows; ++j) {
-            for (size_t k = i; k < m.rows; ++k) {
-                Qi.matrix[j][k] = qprime.matrix[j-i][k-i];
+        for (size_t j = 0; j < m.rows; ++j) {
+            for (size_t k = 0; k < m.rows; ++k) {
+                if (j < i) {
+                    if (j == k) {
+                        Qi.matrix[j][k] = 1;
+                    } else {
+                        Qi.matrix[j][k] = 0;
+                    }
+                } else if (k < i) {
+                    Qi.matrix[j][k] = 0;
+                } else {
+                    Qi.matrix[j][k] = qprime.matrix[j-i][k-i];
+                }
             }
         }
 
@@ -592,12 +599,12 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
         freeMatrixD(&mprime);
         freeMatrixD(&qprime);
         freeMatrixD(&x);
-        freeMatrixD(&Qi);
 
         mprime = _submatrixMatrixD(*r, i + 1, i + 1, m.rows - i - 1, m.rows - i - 1);
     }
 
     freeMatrixD(&mprime);
+    freeMatrixD(&Qi);
 }
 
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {

@@ -71,7 +71,7 @@ int main() {
 
     MatrixD *p = malloc(sizeof(MatrixD));
     MatrixD *d = malloc(sizeof(MatrixD));
-    qrAlgorithmMatrixD(a, 100, d, p); // not producing upper triangular d
+    qrAlgorithmMatrixD(a, 100, d, p);
     printf("QR Algorithm:\n");
     printf("A is similar to:\n");
     displayMatrixD(*d);
