@@ -81,9 +81,7 @@ int main() {
     printf("----------------------------------------\n\n");
 
     MatrixD *x = malloc(sizeof(MatrixD));
-    *x = newMatrixD(0, 0);
     MatrixD *N = malloc(sizeof(MatrixD));
-    *N = newMatrixD(0, 0);
     MatrixD A = appendMatrixD(a, b);
     printf("A = \n");
     displayMatrixD(A);
@@ -99,10 +97,16 @@ int main() {
     if (dims >= 0) {
         printf("Particular Solution:\n");
         displayMatrixD(*x);
+
+        freeMatrixD(x);
+        free(x);
     }
     if (dims > 0) {
         printf("Homogeneous Solution Space:\n");
         displayMatrixD(*N);
+
+        freeMatrixD(N);
+        free(N);
     }
     if (dims == -1) {
         printf("No solution\n");
@@ -117,7 +121,7 @@ int main() {
     freeMatrixD(&A);
     MatrixD B, C1, C2, Cdiff;
 
-    size_t maxDim = 256; // Set to 4096 takes ~10 minutes
+    size_t maxDim = 32; // Set to 4096 takes ~10 minutes
     for (size_t dim = 64; dim <= maxDim; dim *= 2) {
         A = newMatrixD(dim, dim);
         for (size_t i = 0; i < A.rows; ++i) {
@@ -176,14 +180,10 @@ int main() {
     freeMatrixD(r);
     freeMatrixD(p);
     freeMatrixD(d);
-    freeMatrixD(x);
-    freeMatrixD(N);
     free(q);
     free(r);
     free(p);
     free(d);
-    free(x);
-    free(N);
 
     freeMatrixD(&e1);
 

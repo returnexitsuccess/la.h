@@ -255,6 +255,7 @@ double slowDeterminantMatrixD(MatrixD a) {
         sum += unit_factor * a.matrix[i][0] * f;
         unit_factor *= -1;
     }
+    freeMatrixD(&m);
 
     return sum;
 }
@@ -376,6 +377,8 @@ double fastDeterminantMatrixD(MatrixD m) {
         det *= a.matrix[i][i];
     }
 
+    freeMatrixD(&a);
+
     return det;
 }
 
@@ -426,9 +429,16 @@ MatrixD inverseMatrixD(MatrixD m) {
         exit(1);
     }
 
-    MatrixD a = appendMatrixD(m, identityMatrixD(m.rows));
-    a = reducedEchelonMatrixD(a);
-    return _submatrixMatrixD(a, 0, m.rows, m.rows, m.rows);
+    MatrixD I = identityMatrixD(m.rows);
+    MatrixD a = appendMatrixD(m, I);
+    MatrixD r = reducedEchelonMatrixD(a);
+    MatrixD inv = _submatrixMatrixD(a, 0, m.rows, m.rows, m.rows);
+
+    freeMatrixD(&I);
+    freeMatrixD(&a);
+    freeMatrixD(&r);
+
+    return inv;
 }
 
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width) {
@@ -483,8 +493,8 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
         x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
 
         double alpha = normMatrixD(x);
-        qprime = newMatrixD(mprime.rows, mprime.rows);
         if (fabs(alpha) > 1e-100) {
+            qprime = newMatrixD(mprime.rows, mprime.rows);
             if (x.matrix[0][0] >= 0) alpha *= -1;
 
             MatrixD e1 = newMatrixD(mprime.rows, 1);
@@ -503,6 +513,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
 
             freeMatrixD(&e1);
             freeMatrixD(&u);
+            freeMatrixD(&ut);
             freeMatrixD(&I);
         } else {
             qprime = identityMatrixD(mprime.rows);
@@ -524,6 +535,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
         freeMatrixD(&mprime);
         freeMatrixD(&qprime);
         freeMatrixD(&x);
+        freeMatrixD(&Qi);
 
         mprime = _submatrixMatrixD(*r, i + 1, i + 1, m.rows - i - 1, m.rows - i - 1);
     }
@@ -594,7 +606,6 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
             double lambda = d->matrix[d->rows - 1][d->cols - 1]; // Rayleigh shift
             
             // Compute M = d - lambda * I
-            I = identityMatrixD(d->rows);
             scaleMatrixD(&I, lambda, &I);
             subtractMatrixD(&M, d, &I);
 
@@ -665,8 +676,9 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
         exit(1);
     }
 
-    MatrixD augmented = appendMatrixD(A, b);
-    augmented = reducedEchelonMatrixD(augmented);
+    MatrixD Z = appendMatrixD(A, b);
+    MatrixD augmented = reducedEchelonMatrixD(Z);
+    freeMatrixD(&Z);
 
     MatrixD sol = newMatrixD(A.cols, 1);
     MatrixD null;
@@ -717,6 +729,9 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
 
     *x = sol;
     *N = null;
+
+    freeMatrixD(&augmented);
+    free(freeColumns);
 
     return (int) null.cols;
 }
