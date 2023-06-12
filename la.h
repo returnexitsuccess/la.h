@@ -24,11 +24,13 @@ MatrixD identityMatrixD(size_t rows);
 MatrixD copyMatrixD(MatrixD a);
 void displayMatrixD(MatrixD m);
 bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance);
+
 void addMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
-MatrixD scaleMatrixD(double k, MatrixD a);
+void scaleMatrixD(MatrixD *y, double k, MatrixD *a);
+
 double slowDeterminantMatrixD(MatrixD a);
 MatrixD appendMatrixD(MatrixD a, MatrixD b);
 MatrixD echelonMatrixD(MatrixD a);
@@ -212,15 +214,18 @@ void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
     }
 }
 
-MatrixD scaleMatrixD(double k, MatrixD a) {
-    MatrixD m = newMatrixD(a.rows, a.cols);
-    for (size_t i = 0; i < a.rows; ++i) {
-        for (size_t j = 0; j < a.cols; ++j) {
-            m.matrix[i][j] = k * a.matrix[i][j];
-        }
+// y = k * a
+void scaleMatrixD(MatrixD *y, double k, MatrixD *a) {
+    if (y->rows != a->rows || y->cols != a->cols) {
+        fprintf(stderr, "Error: Cannot store scalar multiple of shape (%lu, %lu) in matrix of shape (%lu, %lu)\n", a->rows, a->cols, y->rows, y->cols);
+        exit(1);
     }
 
-    return m;
+    for (size_t i = 0; i < a->rows; ++i) {
+        for (size_t j = 0; j < a->cols; ++j) {
+            y->matrix[i][j] = k * a->matrix[i][j];
+        }
+    }
 }
 
 double slowDeterminantMatrixD(MatrixD a) {
@@ -484,22 +489,20 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
 
             MatrixD e1 = newMatrixD(mprime.rows, 1);
             e1.matrix[0][0] = 1;
-            e1 = scaleMatrixD(-alpha, e1);
+            scaleMatrixD(&e1, -alpha, &e1);
 
             MatrixD u = newMatrixD(mprime.rows, 1);
             addMatrixD(&u, &x, &e1);
-            MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
+            scaleMatrixD(&u, 1 / normMatrixD(u), &u);
 
-            MatrixD vt = transposeMatrixD(v);
-            multiplyMatrixD(&qprime, &v, &vt); // TODO: replace with outer product function
-            qprime = scaleMatrixD(-2, qprime);
+            MatrixD ut = transposeMatrixD(u);
+            multiplyMatrixD(&qprime, &u, &ut); // TODO: replace with outer product function
+            scaleMatrixD(&qprime, -2, &qprime);
             MatrixD I = identityMatrixD(mprime.rows);
             addMatrixD(&qprime, &I, &qprime);
 
             freeMatrixD(&e1);
             freeMatrixD(&u);
-            freeMatrixD(&v);
-            freeMatrixD(&vt);
             freeMatrixD(&I);
         } else {
             qprime = identityMatrixD(mprime.rows);
@@ -558,8 +561,8 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
             // double implicit shift strategy
 
             // Compute M = d^2 - trace * d + det * I
-            I = scaleMatrixD(det, I);
-            M = scaleMatrixD(-trace, *d);
+            scaleMatrixD(&I, det, &I);
+            scaleMatrixD(&M, -trace, d);
             addMultiplyMatrixD(&M, d, d);
             addMatrixD(&M, &M, &I);
 
@@ -592,7 +595,7 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
             
             // Compute M = d - lambda * I
             I = identityMatrixD(d->rows);
-            I = scaleMatrixD(lambda, I);
+            scaleMatrixD(&I, lambda, &I);
             subtractMatrixD(&M, d, &I);
 
             qrDecompositionMatrixD(M, q, r);
