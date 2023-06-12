@@ -13,10 +13,12 @@ There are definitely far better libraries to use, but feel free to use this if y
 - [x] Row Reduction
 - [x] Matrix Inverse
 - [x] Transpose
+- [x] Inner & Outer Product
 - [x] QR Decomposition
 - [x] QR Algorithm
 - [x] Solving Linear Systems
 - [x] Strassen Algorithm
+- [ ] Matrix Norms (1, 2, inf)
 - [ ] Eigenvalues
 - [ ] Eigenvectors
 - [ ] Diagonalization

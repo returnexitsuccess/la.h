@@ -30,6 +30,8 @@ void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void scaleMatrixD(MatrixD *y, double k, MatrixD *a);
+void innerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
+void outerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 
 double slowDeterminantMatrixD(MatrixD a);
 MatrixD appendMatrixD(MatrixD a, MatrixD b);
@@ -226,6 +228,50 @@ void scaleMatrixD(MatrixD *y, double k, MatrixD *a) {
     for (size_t i = 0; i < a->rows; ++i) {
         for (size_t j = 0; j < a->cols; ++j) {
             y->matrix[i][j] = k * a->matrix[i][j];
+        }
+    }
+}
+
+// c = a^T * b
+void innerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    if (a->rows != b->rows) {
+        fprintf(stderr, "Error: Could not compute inner product for matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
+        exit(1);
+    }
+
+    if (a->cols != c->rows || b->cols != c->cols) {
+        fprintf(stderr, "Error: Could not store product of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->cols, b->cols, c->rows, c->cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < c->rows; ++i) {
+        for (size_t j = 0; j < c->cols; ++j) {
+            c->matrix[i][j] = 0;
+            for (size_t k = 0; k < a->rows; ++k) {
+                c->matrix[i][j] += a->matrix[k][i] * b->matrix[k][j];
+            }
+        }
+    }
+}
+
+// c = a * b^T
+void outerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    if (a->cols != b->cols) {
+        fprintf(stderr, "Error: Could not multiply matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
+        exit(1);
+    }
+
+    if (a->rows != c->rows || b->rows != c->cols) {
+        fprintf(stderr, "Error: Could not store product of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, b->rows, c->rows, c->cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < c->rows; ++i) {
+        for (size_t j = 0; j < c->cols; ++j) {
+            c->matrix[i][j] = 0;
+            for (size_t k = 0; k < a->cols; ++k) {
+                c->matrix[i][j] += a->matrix[i][k] * b->matrix[j][k];
+            }
         }
     }
 }
@@ -499,15 +545,13 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
             addMatrixD(&u, &x, &e1);
             scaleMatrixD(&u, 1 / normMatrixD(u), &u);
 
-            MatrixD ut = transposeMatrixD(u);
-            multiplyMatrixD(&qprime, &u, &ut); // TODO: replace with outer product function
+            outerProductMatrixD(&qprime, &u, &u);
             scaleMatrixD(&qprime, -2, &qprime);
             MatrixD I = identityMatrixD(mprime.rows);
             addMatrixD(&qprime, &I, &qprime);
 
             freeMatrixD(&e1);
             freeMatrixD(&u);
-            freeMatrixD(&ut);
             freeMatrixD(&I);
         } else {
             qprime = identityMatrixD(mprime.rows);
