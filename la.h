@@ -26,7 +26,8 @@ void displayMatrixD(MatrixD m);
 bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance);
 void addMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
-MatrixD multiplyMatrixD(MatrixD a, MatrixD b);
+void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
+void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 MatrixD scaleMatrixD(double k, MatrixD a);
 double slowDeterminantMatrixD(MatrixD a);
 MatrixD appendMatrixD(MatrixD a, MatrixD b);
@@ -151,23 +152,64 @@ void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
     }
 }
 
-MatrixD multiplyMatrixD(MatrixD a, MatrixD b) {
-    //Check a.cols == b.rows
-    if (a.cols != b.rows) {
-        fprintf(stderr, "Error: Could not multiply matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+// c = a * b
+void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    if (a->cols != b->rows) {
+        fprintf(stderr, "Error: Could not multiply matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
         exit(1);
     }
 
-    MatrixD m = newMatrixD(a.rows, b.cols);
-    for (size_t i = 0; i < a.rows; ++i) {
-        for (size_t j = 0; j < b.cols; ++j) {
-            for (size_t k = 0; k < a.cols; ++k) {
-                m.matrix[i][j] += a.matrix[i][k] * b.matrix[k][j];
+    if (a->rows != c->rows || b->cols != c->cols) {
+        fprintf(stderr, "Error: Could not store product of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, b->cols, c->rows, c->cols);
+        exit(1);
+    }
+
+    if (c == a || c == b) {
+        MatrixD m = newMatrixD(c->rows, c->cols);
+        for (size_t i = 0; i < a->rows; ++i) {
+            for (size_t j = 0; j < b->cols; ++j) {
+                for (size_t k = 0; k < a->cols; ++k) {
+                    m.matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+                }
+            }
+        }
+        for (size_t i = 0; i < a->rows; ++i) {
+            for (size_t j = 0; j < b->cols; ++j) {
+                c->matrix[i][j] = m.matrix[i][j];
+            }
+        }
+        freeMatrixD(&m);
+    } else {
+        for (size_t i = 0; i < a->rows; ++i) {
+            for (size_t j = 0; j < b->cols; ++j) {
+                c->matrix[i][j] = 0;
+                for (size_t k = 0; k < a->cols; ++k) {
+                    c->matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+                }
             }
         }
     }
+}
 
-    return m;
+// c = c + a * b
+void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    if (a->cols != b->rows) {
+        fprintf(stderr, "Error: Could not multiply matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
+        exit(1);
+    }
+
+    if (a->rows != c->rows || b->cols != c->cols) {
+        fprintf(stderr, "Error: Could not store product of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, b->cols, c->rows, c->cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < a->rows; ++i) {
+        for (size_t j = 0; j < b->cols; ++j) {
+            for (size_t k = 0; k < a->cols; ++k) {
+                c->matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+            }
+        }
+    }
 }
 
 MatrixD scaleMatrixD(double k, MatrixD a) {
@@ -427,13 +469,16 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
     size_t t = (m.rows > m.cols) ? m.cols : m.rows; // minimum
 
     MatrixD mprime = copyMatrixD(m);
-    *q = identityMatrixD(m.rows);
-    *r = m;
+    *q = identityMatrixD(m.rows); // TODO: memory leak?
+    *r = copyMatrixD(m);
+
+    MatrixD qprime, x;
+
     for (size_t i = 0; i < t; ++i) {
-        MatrixD x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
+        x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
 
         double alpha = normMatrixD(x);
-        MatrixD qprime = newMatrixD(mprime.rows, mprime.rows);
+        qprime = newMatrixD(mprime.rows, mprime.rows);
         if (fabs(alpha) > 1e-100) {
             if (x.matrix[0][0] >= 0) alpha *= -1;
 
@@ -445,9 +490,17 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
             addMatrixD(&u, &x, &e1);
             MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
 
-            qprime = scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v)));
+            MatrixD vt = transposeMatrixD(v);
+            multiplyMatrixD(&qprime, &v, &vt); // TODO: replace with outer product function
+            qprime = scaleMatrixD(-2, qprime);
             MatrixD I = identityMatrixD(mprime.rows);
             addMatrixD(&qprime, &I, &qprime);
+
+            freeMatrixD(&e1);
+            freeMatrixD(&u);
+            freeMatrixD(&v);
+            freeMatrixD(&vt);
+            freeMatrixD(&I);
         } else {
             qprime = identityMatrixD(mprime.rows);
         }
@@ -462,11 +515,17 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
             }
         }
 
-        *q = multiplyMatrixD(*q, Qi);
-        *r = multiplyMatrixD(Qi, *r);
+        multiplyMatrixD(q, q, &Qi);
+        multiplyMatrixD(r, &Qi, r);
+
+        freeMatrixD(&mprime);
+        freeMatrixD(&qprime);
+        freeMatrixD(&x);
 
         mprime = _submatrixMatrixD(*r, i + 1, i + 1, m.rows - i - 1, m.rows - i - 1);
     }
+
+    freeMatrixD(&mprime);
 }
 
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
@@ -478,10 +537,10 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
     MatrixD *q = malloc(sizeof(MatrixD));
     MatrixD *r = malloc(sizeof(MatrixD));
 
-    *d = m;
-    *p = identityMatrixD(m.rows);
+    *d = copyMatrixD(m);
+    *p = identityMatrixD(m.rows); // TODO: memory leak?
 
-    MatrixD M, M0, M1, I;
+    MatrixD M, I;
 
     size_t blocksize = 1;
     for (size_t i = 0; i < iterations; ++i) {
@@ -489,6 +548,7 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
         bool converged = true;
 
         M = newMatrixD(d->rows, d->cols);
+        I = identityMatrixD(d->rows);
 
         // check if complex eigenvalues in lower right 2x2 block
         double trace = d->matrix[d->rows - 2][d->cols - 2] + d->matrix[d->rows - 1][d->cols - 1];
@@ -498,17 +558,23 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
             // double implicit shift strategy
 
             // Compute M = d^2 - trace * d + det * I
-            M0 = scaleMatrixD(det, identityMatrixD(d->rows));
-            M1 = scaleMatrixD(-trace, *d);
-            M = multiplyMatrixD(*d, *d);
-            addMatrixD(&M, &M, &M1);
-            addMatrixD(&M, &M, &M0);
-            freeMatrixD(&M0);
-            freeMatrixD(&M1);
+            I = scaleMatrixD(det, I);
+            M = scaleMatrixD(-trace, *d);
+            addMultiplyMatrixD(&M, d, d);
+            addMatrixD(&M, &M, &I);
 
             qrDecompositionMatrixD(M, q, r);
-            *d = multiplyMatrixD(transposeMatrixD(*q), multiplyMatrixD(*d, *q));
-            *p = multiplyMatrixD(*p, *q);
+            MatrixD qt = transposeMatrixD(*q);
+            multiplyMatrixD(d, d, q);
+            multiplyMatrixD(d, &qt, d); // TODO: Replace with Ut A V function
+            multiplyMatrixD(p, p, q);
+
+            freeMatrixD(&I);
+            freeMatrixD(&M);
+            freeMatrixD(&qt);
+
+            freeMatrixD(q);
+            freeMatrixD(r);
 
             blocksize = 2;
 
@@ -519,7 +585,6 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
 
             if (converged) {
                 //printf("2: Exited early at iteration %lu for stage %lu\n", i, d->rows);
-                freeMatrixD(&M);
                 break;
             }
         } else {
@@ -533,11 +598,15 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
             qrDecompositionMatrixD(M, q, r);
 
             // d = r * q + lambda * I
-            *d = multiplyMatrixD(*r, *q);
+            multiplyMatrixD(d, r, q);
             addMatrixD(d, d, &I);
-            *p = multiplyMatrixD(*p, *q);
+            multiplyMatrixD(p, p, q);
 
             freeMatrixD(&I);
+            freeMatrixD(&M);
+
+            freeMatrixD(q);
+            freeMatrixD(r);
 
             blocksize = 1;
 
@@ -547,12 +616,9 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
 
             if (converged) {
                 //printf("1: Exited early at iteration %lu for stage %lu\n", i, d->rows);
-                freeMatrixD(&M);
                 break;
             }
         }
-
-        freeMatrixD(&M);
     }
 
     if (m.rows > 1 + blocksize) {
@@ -570,10 +636,16 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
         for (size_t i = m.rows - blocksize; i < m.rows; ++i) {
             piFull.matrix[i][i] = 1;
         }
-        *d = multiplyMatrixD(transposeMatrixD(piFull), multiplyMatrixD(*d, piFull));
-        *p = multiplyMatrixD(*p, piFull);
+        MatrixD piFullT = transposeMatrixD(piFull);
+        multiplyMatrixD(d, d, &piFull);
+        multiplyMatrixD(d, &piFullT, d); // TODO: Replace with Ut A V function
+        multiplyMatrixD(p, p, &piFull);
 
         freeMatrixD(&mi);
+        freeMatrixD(&piFull);
+        freeMatrixD(&piFullT);
+        freeMatrixD(di);
+        freeMatrixD(pi);
         free(di);
         free(pi);
     }

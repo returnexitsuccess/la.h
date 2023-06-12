@@ -36,7 +36,7 @@ int main() {
     printf("a + b =\n");
     displayMatrixD(m);
 
-    m = multiplyMatrixD(a, b);
+    multiplyMatrixD(&m, &a, &b);
     printf("a * b =\n");
     displayMatrixD(m);
 
@@ -135,9 +135,14 @@ int main() {
 
         clock_t t1, t2, t3;
         t1 = clock();
-        C1 = multiplyMatrixD(A, B);
+
+        C1 = newMatrixD(dim, dim);
+        multiplyMatrixD(&C1, &A, &B);
+        
         t2 = clock();
+        
         C2 = strassenMultiplyMatrixD(A, B);
+        
         t3 = clock();
 
         Cdiff = newMatrixD(dim, dim);
