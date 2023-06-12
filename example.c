@@ -46,7 +46,8 @@ int main() {
     double db2 = fastDeterminantMatrixD(b);
     printf("|b| = %f\n\n", db2);
 
-    MatrixD a_echelon = echelonMatrixD(a);
+    MatrixD a_echelon = copyMatrixD(a);
+    echelonMatrixD(&a_echelon);
     printf("Echelon form of a:\n");
     displayMatrixD(a_echelon);
 

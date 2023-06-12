@@ -33,12 +33,14 @@ void scaleMatrixD(MatrixD *y, double k, MatrixD *a);
 
 double slowDeterminantMatrixD(MatrixD a);
 MatrixD appendMatrixD(MatrixD a, MatrixD b);
-MatrixD echelonMatrixD(MatrixD a);
+
+void echelonMatrixD(MatrixD *m);
 void _swapRowMatrixD(MatrixD *m, size_t row1, size_t row2);
 void _rowAdditionMatrixD(MatrixD *m, double k, size_t row1, size_t row2);
 double fastDeterminantMatrixD(MatrixD m);
-MatrixD reducedEchelonMatrixD(MatrixD m);
+void reducedEchelonMatrixD(MatrixD *m);
 void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
+
 MatrixD inverseMatrixD(MatrixD m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
@@ -279,31 +281,28 @@ MatrixD appendMatrixD(MatrixD a, MatrixD b) {
     return m;
 }
 
-MatrixD echelonMatrixD(MatrixD m) {
-    MatrixD a = copyMatrixD(m);
-
+// Computes the echelon matrix of m in-place
+void echelonMatrixD(MatrixD *m) {
     size_t pivots = 0;
-    for (size_t col = 0; col < a.cols; ++col) {
+    for (size_t col = 0; col < m->cols; ++col) {
         size_t row = pivots;
-        while (a.matrix[row][col] == 0) {
+        while (m->matrix[row][col] == 0) {
             row++;
-            if (row >= a.rows) {
-                row = a.rows - 1;
+            if (row >= m->rows) {
+                row = m->rows - 1;
                 break;
             }
         }
-        if (a.matrix[row][col] != 0) {
-            _swapRowMatrixD(&a, pivots, row);
-            for (size_t i = pivots + 1; i < a.rows; ++i) {
-                _rowAdditionMatrixD(&a, -a.matrix[i][col] / a.matrix[pivots][col], pivots, i);
+        if (m->matrix[row][col] != 0) {
+            _swapRowMatrixD(m, pivots, row);
+            for (size_t i = pivots + 1; i < m->rows; ++i) {
+                _rowAdditionMatrixD(m, -m->matrix[i][col] / m->matrix[pivots][col], pivots, i);
             }
             pivots++;
         }
         
-        if (pivots == a.rows) break;
+        if (pivots == m->rows) break;
     }
-
-    return a;
 }
 
 void _swapRowMatrixD(MatrixD *m, size_t row1, size_t row2) {
@@ -382,34 +381,30 @@ double fastDeterminantMatrixD(MatrixD m) {
     return det;
 }
 
-MatrixD reducedEchelonMatrixD(MatrixD m) {
-    MatrixD a = copyMatrixD(m);
-
+void reducedEchelonMatrixD(MatrixD *m) {
     size_t pivots = 0;
-    for (size_t col = 0; col < a.cols; ++col) {
+    for (size_t col = 0; col < m->cols; ++col) {
         size_t row = pivots;
-        while (a.matrix[row][col] == 0) {
+        while (m->matrix[row][col] == 0) { // TODO: select pivot based on largest element
             row++;
-            if (row >= a.rows) {
-                row = a.rows - 1;
+            if (row >= m->rows) {
+                row = m->rows - 1;
                 break;
             }
         }
-        if (a.matrix[row][col] != 0) {
-            _swapRowMatrixD(&a, pivots, row);
-            _scaleRowMatrixD(&a, 1 / a.matrix[pivots][col], pivots);
-            for (size_t i = 0; i < a.rows; ++i) {
+        if (m->matrix[row][col] != 0) {
+            _swapRowMatrixD(m, pivots, row);
+            _scaleRowMatrixD(m, 1 / m->matrix[pivots][col], pivots);
+            for (size_t i = 0; i < m->rows; ++i) {
                 if (i == pivots) continue;
-                _rowAdditionMatrixD(&a, -a.matrix[i][col], pivots, i);
-                a.matrix[i][col] = 0; // manually set to avoid error
+                _rowAdditionMatrixD(m, -m->matrix[i][col], pivots, i);
+                m->matrix[i][col] = 0; // manually set to avoid error
             }
             pivots++;
         }
         
-        if (pivots == a.rows) break;
+        if (pivots == m->rows) break;
     }
-
-    return a;
 }
 
 void _scaleRowMatrixD(MatrixD *m, double k, size_t row) {
@@ -431,12 +426,11 @@ MatrixD inverseMatrixD(MatrixD m) {
 
     MatrixD I = identityMatrixD(m.rows);
     MatrixD a = appendMatrixD(m, I);
-    MatrixD r = reducedEchelonMatrixD(a);
+    reducedEchelonMatrixD(&a);
     MatrixD inv = _submatrixMatrixD(a, 0, m.rows, m.rows, m.rows);
 
     freeMatrixD(&I);
     freeMatrixD(&a);
-    freeMatrixD(&r);
 
     return inv;
 }
@@ -676,9 +670,8 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
         exit(1);
     }
 
-    MatrixD Z = appendMatrixD(A, b);
-    MatrixD augmented = reducedEchelonMatrixD(Z);
-    freeMatrixD(&Z);
+    MatrixD augmented = appendMatrixD(A, b);
+    reducedEchelonMatrixD(&augmented);
 
     MatrixD sol = newMatrixD(A.cols, 1);
     MatrixD null;
