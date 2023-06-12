@@ -116,7 +116,7 @@ int main() {
     freeMatrixD(&A);
     MatrixD B, C1, C2, Cdiff;
 
-    size_t maxDim = 1024; // Set to 4096 takes ~10 minutes
+    size_t maxDim = 256; // Set to 4096 takes ~10 minutes
     for (size_t dim = 64; dim <= maxDim; dim *= 2) {
         A = newMatrixD(dim, dim);
         for (size_t i = 0; i < A.rows; ++i) {
