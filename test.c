@@ -6,6 +6,7 @@ static int Test_identityMatrixD();
 static int Test_copyMatrixD();
 static int Test_equalsMatrixD();
 static int Test_addMatrixD();
+static int Test_multiplyMatrixD();
 
 int main() {
     int status = 0;
@@ -13,8 +14,11 @@ int main() {
     status |= Test_newMatrixD();
     status |= Test_identityMatrixD();
     status |= Test_copyMatrixD();
+
     status |= Test_equalsMatrixD();
+
     status |= Test_addMatrixD();
+    status |= Test_multiplyMatrixD();
 
     return status;
 }
@@ -197,7 +201,8 @@ static int Test_addMatrixD() {
         }
     }
 
-    MatrixD c = addMatrixD(a, b);
+    MatrixD c = newMatrixD(dim, dim);
+    addMatrixD(&c, &a, &b);
     if (c.rows != dim || c.cols != dim) {
         printf("FAILED Test_addMatrixD (size not equal)\n");
         status = 1;
@@ -216,6 +221,48 @@ static int Test_addMatrixD() {
     freeMatrixD(&c);
 
     if (status == 0) printf("PASSED Test_addMatrixD\n");
+
+    return status;
+}
+
+static int Test_multiplyMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD a = newMatrixD(dim, dim);
+    MatrixD b = identityMatrixD(dim);
+    MatrixD c;
+    for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+            a.matrix[i][j] = (double) (i * i * j);
+        }
+    }
+    
+    c = multiplyMatrixD(a, b);
+    if (!equalsMatrixD(a, c, 0)) {
+        printf("FAILED Test_multiplyMatrixD (a * I == a)\n");
+        status = 1;
+    }
+    freeMatrixD(&c);
+
+    c = multiplyMatrixD(b, a);
+    if (!equalsMatrixD(a, c, 0)) {
+        printf("FAILED Test_multiplyMatrixD (I * a == a)\n");
+        status = 1;
+    }
+    freeMatrixD(&c);
+
+    c = multiplyMatrixD(b, b);
+    if (!equalsMatrixD(b, c, 0)) {
+        printf("FAILED Test_multiplyMatrixD (I * I == I)\n");
+        status = 1;
+    }
+    freeMatrixD(&c);
+
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+
+    if (status == 0) printf("PASSED Test_multiplyMatrixD\n");
 
     return status;
 }

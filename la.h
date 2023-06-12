@@ -24,7 +24,8 @@ MatrixD identityMatrixD(size_t rows);
 MatrixD copyMatrixD(MatrixD a);
 void displayMatrixD(MatrixD m);
 bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance);
-MatrixD addMatrixD(MatrixD a, MatrixD b);
+void addMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
+void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 MatrixD multiplyMatrixD(MatrixD a, MatrixD b);
 MatrixD scaleMatrixD(double k, MatrixD a);
 double slowDeterminantMatrixD(MatrixD a);
@@ -110,21 +111,44 @@ bool equalsMatrixD(MatrixD a, MatrixD b, double tolerance) {
     return true;
 }
 
-MatrixD addMatrixD(MatrixD a, MatrixD b) {
+// c = a + b
+void addMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
     // Check rows and columns match
-    if (a.rows != b.rows || a.cols != b.cols) {
-        fprintf(stderr, "Error: Could not add matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+    if (a->rows != b->rows || a->cols != b->cols) {
+        fprintf(stderr, "Error: Could not add matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
         exit(1);
     }
 
-    MatrixD m = newMatrixD(a.rows, a.cols);
-    for (size_t i = 0; i < a.rows; ++i) {
-        for (size_t j = 0; j < a.cols; ++j) {
-            m.matrix[i][j] = a.matrix[i][j] + b.matrix[i][j];
-        }
+    if (a->rows != c->rows || a->cols != c->cols) {
+        fprintf(stderr, "Error: Could not store sum of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, a->cols, c->rows, c->cols);
+        exit(1);
     }
 
-    return m;
+    for (size_t i = 0; i < c->rows; ++i) {
+        for (size_t j = 0; j < c->cols; ++j) {
+            c->matrix[i][j] = a->matrix[i][j] + b->matrix[i][j];
+        }
+    }
+}
+
+// c = a - b
+void subtractMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    // Check rows and columns match
+    if (a->rows != b->rows || a->cols != b->cols) {
+        fprintf(stderr, "Error: Could not subtract matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
+        exit(1);
+    }
+
+    if (a->rows != c->rows || a->cols != c->cols) {
+        fprintf(stderr, "Error: Could not store difference of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, a->cols, c->rows, c->cols);
+        exit(1);
+    }
+
+    for (size_t i = 0; i < c->rows; ++i) {
+        for (size_t j = 0; j < c->cols; ++j) {
+            c->matrix[i][j] = a->matrix[i][j] - b->matrix[i][j];
+        }
+    }
 }
 
 MatrixD multiplyMatrixD(MatrixD a, MatrixD b) {
@@ -409,17 +433,21 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
         MatrixD x = _submatrixMatrixD(mprime, 0, 0, mprime.rows, 1);
 
         double alpha = normMatrixD(x);
-        MatrixD qprime;
+        MatrixD qprime = newMatrixD(mprime.rows, mprime.rows);
         if (fabs(alpha) > 1e-100) {
             if (x.matrix[0][0] >= 0) alpha *= -1;
 
             MatrixD e1 = newMatrixD(mprime.rows, 1);
             e1.matrix[0][0] = 1;
+            e1 = scaleMatrixD(-alpha, e1);
 
-            MatrixD u = addMatrixD(x, scaleMatrixD(-alpha, e1));
+            MatrixD u = newMatrixD(mprime.rows, 1);
+            addMatrixD(&u, &x, &e1);
             MatrixD v = scaleMatrixD(1 / normMatrixD(u), u);
 
-            qprime = addMatrixD(identityMatrixD(mprime.rows), scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v))));
+            qprime = scaleMatrixD(-2, multiplyMatrixD(v, transposeMatrixD(v)));
+            MatrixD I = identityMatrixD(mprime.rows);
+            addMatrixD(&qprime, &I, &qprime);
         } else {
             qprime = identityMatrixD(mprime.rows);
         }
@@ -453,10 +481,14 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
     *d = m;
     *p = identityMatrixD(m.rows);
 
+    MatrixD M, M0, M1, I;
+
     size_t blocksize = 1;
     for (size_t i = 0; i < iterations; ++i) {
 
         bool converged = true;
+
+        M = newMatrixD(d->rows, d->cols);
 
         // check if complex eigenvalues in lower right 2x2 block
         double trace = d->matrix[d->rows - 2][d->cols - 2] + d->matrix[d->rows - 1][d->cols - 1];
@@ -464,7 +496,16 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
         if (trace * trace < 4 * det) {
             // complex eigenvalues
             // double implicit shift strategy
-            MatrixD M = addMatrixD(multiplyMatrixD(*d, *d), addMatrixD(scaleMatrixD(-trace, *d), scaleMatrixD(det, identityMatrixD(d->rows))));
+
+            // Compute M = d^2 - trace * d + det * I
+            M0 = scaleMatrixD(det, identityMatrixD(d->rows));
+            M1 = scaleMatrixD(-trace, *d);
+            M = multiplyMatrixD(*d, *d);
+            addMatrixD(&M, &M, &M1);
+            addMatrixD(&M, &M, &M0);
+            freeMatrixD(&M0);
+            freeMatrixD(&M1);
+
             qrDecompositionMatrixD(M, q, r);
             *d = multiplyMatrixD(transposeMatrixD(*q), multiplyMatrixD(*d, *q));
             *p = multiplyMatrixD(*p, *q);
@@ -478,14 +519,25 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
 
             if (converged) {
                 //printf("2: Exited early at iteration %lu for stage %lu\n", i, d->rows);
+                freeMatrixD(&M);
                 break;
             }
         } else {
             double lambda = d->matrix[d->rows - 1][d->cols - 1]; // Rayleigh shift
             
-            qrDecompositionMatrixD(addMatrixD(*d, scaleMatrixD(-lambda, identityMatrixD(d->rows))), q, r);
-            *d = addMatrixD(multiplyMatrixD(*r, *q), scaleMatrixD(lambda, identityMatrixD(d->rows)));
+            // Compute M = d - lambda * I
+            I = identityMatrixD(d->rows);
+            I = scaleMatrixD(lambda, I);
+            subtractMatrixD(&M, d, &I);
+
+            qrDecompositionMatrixD(M, q, r);
+
+            // d = r * q + lambda * I
+            *d = multiplyMatrixD(*r, *q);
+            addMatrixD(d, d, &I);
             *p = multiplyMatrixD(*p, *q);
+
+            freeMatrixD(&I);
 
             blocksize = 1;
 
@@ -495,9 +547,12 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
 
             if (converged) {
                 //printf("1: Exited early at iteration %lu for stage %lu\n", i, d->rows);
+                freeMatrixD(&M);
                 break;
             }
         }
+
+        freeMatrixD(&M);
     }
 
     if (m.rows > 1 + blocksize) {

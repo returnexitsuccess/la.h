@@ -31,7 +31,8 @@ int main() {
     printf("b =\n");
     displayMatrixD(b);
 
-    MatrixD m = addMatrixD(a, b);
+    MatrixD m = newMatrixD(a.rows, a.cols);
+    addMatrixD(&m, &a, &b);
     printf("a + b =\n");
     displayMatrixD(m);
 
@@ -139,7 +140,8 @@ int main() {
         C2 = strassenMultiplyMatrixD(A, B);
         t3 = clock();
 
-        Cdiff = addMatrixD(C1, scaleMatrixD(-1, C2));
+        Cdiff = newMatrixD(dim, dim);
+        subtractMatrixD(&Cdiff, &C1, &C2);
         double max = 0;
         for (size_t i = 0; i < Cdiff.rows; ++i) {
             for (size_t j = 0; j < Cdiff.cols; ++j) {
