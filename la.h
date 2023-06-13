@@ -38,6 +38,7 @@ void innerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 void outerProductMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 
 double slowDeterminantMatrixD(MatrixD a);
+
 MatrixD appendMatrixD(MatrixD a, MatrixD b);
 
 void echelonMatrixD(MatrixD *m);
@@ -54,6 +55,7 @@ double normMatrixD(MatrixD m, int norm_type);
 void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
+
 MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b);
 _BlockMatrixD _toBlockMatrixD(MatrixD m, size_t rows, size_t cols, size_t rowOffset, size_t colOffset);
 MatrixD _fromBlockMatrixD(_BlockMatrixD mBlock);
@@ -543,7 +545,7 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r) {
     size_t t = (m.rows > m.cols) ? m.cols : m.rows; // minimum
 
     MatrixD mprime = copyMatrixD(m);
-    *q = identityMatrixD(m.rows); // TODO: memory leak?
+    *q = identityMatrixD(m.rows);
     *r = copyMatrixD(m);
 
     MatrixD qprime, x;
@@ -617,7 +619,7 @@ void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p) {
     MatrixD *r = malloc(sizeof(MatrixD));
 
     *d = copyMatrixD(m);
-    *p = identityMatrixD(m.rows); // TODO: memory leak?
+    *p = identityMatrixD(m.rows);
 
     MatrixD M, I;
 
