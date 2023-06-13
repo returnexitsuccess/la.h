@@ -56,9 +56,10 @@ void qrDecompositionMatrixD(MatrixD m, MatrixD *q, MatrixD *r);
 void qrAlgorithmMatrixD(MatrixD m, size_t iterations, MatrixD *d, MatrixD *p);
 int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N);
 
-MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b);
+void strassenMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b);
 _BlockMatrixD _toBlockMatrixD(MatrixD m, size_t rows, size_t cols, size_t rowOffset, size_t colOffset);
 MatrixD _fromBlockMatrixD(_BlockMatrixD mBlock);
+void _freeBlockMatrixD(_BlockMatrixD *m);
 _BlockMatrixD _addBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
 _BlockMatrixD _subtractBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
 void _updateAddBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b);
@@ -802,36 +803,67 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
 }
 
 // Strassen Algorithm for square matrices (for now)
-MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b) {
-    if (a.rows != a.cols || b.rows != b.cols) {
-        fprintf(stderr, "Error: Cannot perform Strassen algorithm on non-square matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+void strassenMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
+    if (a->rows != a->cols || b->rows != b->cols) {
+        fprintf(stderr, "Error: Cannot perform Strassen algorithm on non-square matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
         exit(1);
     }
 
-    if (a.cols != b.rows) {
-        fprintf(stderr, "Error: Cannot perform Strassen algorithm on matrices of shape (%lu, %lu) and (%lu, %lu)\n", a.rows, a.cols, b.rows, b.cols);
+    if (a->cols != b->rows) {
+        fprintf(stderr, "Error: Cannot perform Strassen algorithm on matrices of shape (%lu, %lu) and (%lu, %lu)\n", a->rows, a->cols, b->rows, b->cols);
         exit(1);
     }
 
-    _BlockMatrixD A11 = _toBlockMatrixD(a, (a.rows + 1) / 2, (a.cols + 1) / 2, 0, 0);
-    _BlockMatrixD B11 = _toBlockMatrixD(b, (b.rows + 1) / 2, (b.cols + 1) / 2, 0, 0);
+    if (c->rows != a->rows || c->cols != b->cols) {
+        fprintf(stderr, "Error: Cannot store matrix of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", a->rows, b->cols, c->rows, c->cols);
+        exit(1);
+    }
 
-    _BlockMatrixD A12 = _toBlockMatrixD(a, (a.rows + 1) / 2, a.cols / 2, 0, (a.cols + 1) / 2);
-    _BlockMatrixD B12 = _toBlockMatrixD(b, (b.rows + 1) / 2, b.cols / 2, 0, (b.cols + 1) / 2);
+    _BlockMatrixD A11 = _toBlockMatrixD(*a, (a->rows + 1) / 2, (a->cols + 1) / 2, 0, 0);
+    _BlockMatrixD B11 = _toBlockMatrixD(*b, (b->rows + 1) / 2, (b->cols + 1) / 2, 0, 0);
 
-    _BlockMatrixD A21 = _toBlockMatrixD(a, a.rows / 2, (a.cols + 1) / 2, (a.rows + 1) / 2, 0);
-    _BlockMatrixD B21 = _toBlockMatrixD(b, b.rows / 2, (b.cols + 1) / 2, (b.rows + 1) / 2, 0);
+    _BlockMatrixD A12 = _toBlockMatrixD(*a, (a->rows + 1) / 2, a->cols / 2, 0, (a->cols + 1) / 2);
+    _BlockMatrixD B12 = _toBlockMatrixD(*b, (b->rows + 1) / 2, b->cols / 2, 0, (b->cols + 1) / 2);
 
-    _BlockMatrixD A22 = _toBlockMatrixD(a, a.rows / 2, a.cols / 2, (a.rows + 1) / 2, (a.cols + 1) / 2);
-    _BlockMatrixD B22 = _toBlockMatrixD(b, b.rows / 2, b.cols / 2, (b.rows + 1) / 2, (b.cols + 1) / 2);
+    _BlockMatrixD A21 = _toBlockMatrixD(*a, a->rows / 2, (a->cols + 1) / 2, (a->rows + 1) / 2, 0);
+    _BlockMatrixD B21 = _toBlockMatrixD(*b, b->rows / 2, (b->cols + 1) / 2, (b->rows + 1) / 2, 0);
 
-    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A22), _addBlockMatrixD(B11, B22));
-    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A21, A22), B11);
-    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, _subtractBlockMatrixD(B12, B22));
-    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, _subtractBlockMatrixD(B21, B11));
-    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A12), B22);
-    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A21, A11), _addBlockMatrixD(B11, B12));
-    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A12, A22), _addBlockMatrixD(B21, B22));
+    _BlockMatrixD A22 = _toBlockMatrixD(*a, a->rows / 2, a->cols / 2, (a->rows + 1) / 2, (a->cols + 1) / 2);
+    _BlockMatrixD B22 = _toBlockMatrixD(*b, b->rows / 2, b->cols / 2, (b->rows + 1) / 2, (b->cols + 1) / 2);
+
+    _BlockMatrixD M1a = _addBlockMatrixD(A11, A22);
+    _BlockMatrixD M1b = _addBlockMatrixD(B11, B22);
+    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(M1a, M1b);
+    _freeBlockMatrixD(&M1a);
+    _freeBlockMatrixD(&M1b);
+
+    _BlockMatrixD M2a = _addBlockMatrixD(A21, A22);
+    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(M2a, B11);
+    _freeBlockMatrixD(&M2a);
+
+    _BlockMatrixD M3a = _subtractBlockMatrixD(B12, B22);
+    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, M3a);
+    _freeBlockMatrixD(&M3a);
+
+    _BlockMatrixD M4a = _subtractBlockMatrixD(B21, B11);
+    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, M4a);
+    _freeBlockMatrixD(&M4a);
+
+    _BlockMatrixD M5a = _addBlockMatrixD(A11, A12);
+    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(M5a, B22);
+    _freeBlockMatrixD(&M5a);
+
+    _BlockMatrixD M6a = _subtractBlockMatrixD(A21, A11);
+    _BlockMatrixD M6b = _addBlockMatrixD(B11, B12);
+    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(M6a, M6b);
+    _freeBlockMatrixD(&M6a);
+    _freeBlockMatrixD(&M6b);
+
+    _BlockMatrixD M7a = _subtractBlockMatrixD(A12, A22);
+    _BlockMatrixD M7b = _addBlockMatrixD(B21, B22);
+    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(M7a, M7b);
+    _freeBlockMatrixD(&M7a);
+    _freeBlockMatrixD(&M7b);
 
     // C11 = M1 + M4 - M5 + M7
     _BlockMatrixD C11 = _addBlockMatrixD(M1, M4);
@@ -849,27 +881,36 @@ MatrixD strassenMultiplyMatrixD(MatrixD a, MatrixD b) {
     _updateAddBlockMatrixD(&C22, M3);
     _updateAddBlockMatrixD(&C22, M6);
 
-    MatrixD C = newMatrixD(a.rows, a.cols);
-
-    for (size_t i = 0; i < C.rows; ++i) {
-        for (size_t j = 0; j < C.cols; ++j) {
+    for (size_t i = 0; i < c->rows; ++i) {
+        for (size_t j = 0; j < c->cols; ++j) {
             if (i < C11.rows) {
                 if (j < C11.cols) {
-                    C.matrix[i][j] = C11.matrix[i + C11.rowOffset][j + C11.colOffset];
+                    c->matrix[i][j] = C11.matrix[i + C11.rowOffset][j + C11.colOffset];
                 } else {
-                    C.matrix[i][j] = C12.matrix[i + C12.rowOffset][j - C11.cols + C12.colOffset];
+                    c->matrix[i][j] = C12.matrix[i + C12.rowOffset][j - C11.cols + C12.colOffset];
                 }
             } else {
                 if (j < C21.cols) {
-                    C.matrix[i][j] = C21.matrix[i - C11.rows + C21.rowOffset][j + C21.colOffset];
+                    c->matrix[i][j] = C21.matrix[i - C11.rows + C21.rowOffset][j + C21.colOffset];
                 } else {
-                    C.matrix[i][j] = C22.matrix[i - C11.rows + C22.rowOffset][j - C21.cols + C22.colOffset];
+                    c->matrix[i][j] = C22.matrix[i - C11.rows + C22.rowOffset][j - C21.cols + C22.colOffset];
                 }
             }
         }
     }
 
-    return C;
+    _freeBlockMatrixD(&M1);
+    _freeBlockMatrixD(&M2);
+    _freeBlockMatrixD(&M3);
+    _freeBlockMatrixD(&M4);
+    _freeBlockMatrixD(&M5);
+    _freeBlockMatrixD(&M6);
+    _freeBlockMatrixD(&M7);
+
+    _freeBlockMatrixD(&C11);
+    _freeBlockMatrixD(&C12);
+    _freeBlockMatrixD(&C21);
+    _freeBlockMatrixD(&C22);
 }
 
 _BlockMatrixD _toBlockMatrixD(MatrixD m, size_t rows, size_t cols, size_t rowOffset, size_t colOffset) {
@@ -889,6 +930,19 @@ MatrixD _fromBlockMatrixD(_BlockMatrixD mBlock) {
 
     MatrixD m = { mBlock.rows, mBlock.cols, matrix };
     return m;
+}
+
+void _freeBlockMatrixD(_BlockMatrixD *m) {
+    if (m->rowOffset != 0 || m->colOffset != 0) {
+        fprintf(stderr, "Error: Cannot free Block Matrix that is a child of another Matrix / Block Matrix\n");
+        exit(1);
+    }
+
+    for (size_t i = 0; i < m->rows; ++i) {
+        free(m->matrix[i]);
+    }
+    free(m->matrix);
+    m->matrix = NULL;
 }
 
 _BlockMatrixD _addBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
@@ -991,13 +1045,39 @@ _BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
     _BlockMatrixD A22 = { a.rows - (dim + 1) / 2, a.cols - (dim + 1) / 2, a.rowOffset + (dim + 1) / 2, a.colOffset + (dim + 1) / 2, a.matrix };
     _BlockMatrixD B22 = { b.rows - (dim + 1) / 2, b.cols - (dim + 1) / 2, b.rowOffset + (dim + 1) / 2, b.colOffset + (dim + 1) / 2, b.matrix };
 
-    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A22), _addBlockMatrixD(B11, B22));
-    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A21, A22), B11);
-    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, _subtractBlockMatrixD(B12, B22));
-    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, _subtractBlockMatrixD(B21, B11));
-    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(_addBlockMatrixD(A11, A12), B22);
-    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A21, A11), _addBlockMatrixD(B11, B12));
-    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(_subtractBlockMatrixD(A12, A22), _addBlockMatrixD(B21, B22));
+    _BlockMatrixD M1a = _addBlockMatrixD(A11, A22);
+    _BlockMatrixD M1b = _addBlockMatrixD(B11, B22);
+    _BlockMatrixD M1 = _strassenMultiplyBlockMatrixD(M1a, M1b);
+    _freeBlockMatrixD(&M1a);
+    _freeBlockMatrixD(&M1b);
+
+    _BlockMatrixD M2a = _addBlockMatrixD(A21, A22);
+    _BlockMatrixD M2 = _strassenMultiplyBlockMatrixD(M2a, B11);
+    _freeBlockMatrixD(&M2a);
+
+    _BlockMatrixD M3a = _subtractBlockMatrixD(B12, B22);
+    _BlockMatrixD M3 = _strassenMultiplyBlockMatrixD(A11, M3a);
+    _freeBlockMatrixD(&M3a);
+
+    _BlockMatrixD M4a = _subtractBlockMatrixD(B21, B11);
+    _BlockMatrixD M4 = _strassenMultiplyBlockMatrixD(A22, M4a);
+    _freeBlockMatrixD(&M4a);
+
+    _BlockMatrixD M5a = _addBlockMatrixD(A11, A12);
+    _BlockMatrixD M5 = _strassenMultiplyBlockMatrixD(M5a, B22);
+    _freeBlockMatrixD(&M5a);
+
+    _BlockMatrixD M6a = _subtractBlockMatrixD(A21, A11);
+    _BlockMatrixD M6b = _addBlockMatrixD(B11, B12);
+    _BlockMatrixD M6 = _strassenMultiplyBlockMatrixD(M6a, M6b);
+    _freeBlockMatrixD(&M6a);
+    _freeBlockMatrixD(&M6b);
+
+    _BlockMatrixD M7a = _subtractBlockMatrixD(A12, A22);
+    _BlockMatrixD M7b = _addBlockMatrixD(B21, B22);
+    _BlockMatrixD M7 = _strassenMultiplyBlockMatrixD(M7a, M7b);
+    _freeBlockMatrixD(&M7a);
+    _freeBlockMatrixD(&M7b);
 
     // C11 = M1 + M4 - M5 + M7
     _BlockMatrixD C11 = _addBlockMatrixD(M1, M4);
@@ -1036,6 +1116,19 @@ _BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
     }
 
     _BlockMatrixD C = { dim, dim, 0, 0, matrix };
+
+    _freeBlockMatrixD(&M1);
+    _freeBlockMatrixD(&M2);
+    _freeBlockMatrixD(&M3);
+    _freeBlockMatrixD(&M4);
+    _freeBlockMatrixD(&M5);
+    _freeBlockMatrixD(&M6);
+    _freeBlockMatrixD(&M7);
+
+    _freeBlockMatrixD(&C11);
+    _freeBlockMatrixD(&C12);
+    _freeBlockMatrixD(&C21);
+    _freeBlockMatrixD(&C22);
 
     return C;
 }

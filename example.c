@@ -122,7 +122,7 @@ int main() {
     freeMatrixD(&A);
     MatrixD B, C1, C2, Cdiff;
 
-    size_t maxDim = 32; // Set to 4096 takes ~10 minutes
+    size_t maxDim = 512; // Set to 4096 takes ~10 minutes
     for (size_t dim = 64; dim <= maxDim; dim *= 2) {
         A = newMatrixD(dim, dim);
         for (size_t i = 0; i < A.rows; ++i) {
@@ -146,7 +146,8 @@ int main() {
         
         t2 = clock();
         
-        C2 = strassenMultiplyMatrixD(A, B);
+        C2 = newMatrixD(dim, dim);
+        strassenMultiplyMatrixD(&C2, &A, &B);
         
         t3 = clock();
 
@@ -169,6 +170,8 @@ int main() {
         freeMatrixD(&C2);
         freeMatrixD(&Cdiff);
     }
+
+    printf("----------------------------------------\n\n");
 
     freeMatrixD(&a);
     freeMatrixD(&b);
