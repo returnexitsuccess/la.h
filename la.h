@@ -516,6 +516,7 @@ MatrixD transposeMatrixD(MatrixD m) {
     return a;
 }
 
+// Computes the vector 1-norm, 2-norm, or inf-norm of m
 double normMatrixD(MatrixD m, int norm_type) {
     double sum = 0;
     if (norm_type == ONE_NORM) {

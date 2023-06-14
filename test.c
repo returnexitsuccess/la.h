@@ -20,6 +20,8 @@ static int Test_fastDeterminantMatrixD();
 
 static int Test_appendMatrixD();
 
+static int Test_inverseMatrixD();
+
 int main() {
     int status = 0;
 
@@ -41,6 +43,8 @@ int main() {
     status |= Test_fastDeterminantMatrixD();
 
     status |= Test_appendMatrixD();
+
+    status |= Test_inverseMatrixD();
 
     printf("----------------------------------------\n");
 
@@ -654,6 +658,50 @@ static int Test_appendMatrixD() {
     freeMatrixD(&c);
 
     if (status == 0) printf("PASSED Test_appendMatrixD\n");
+
+    return status;
+}
+
+static int Test_inverseMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD I = identityMatrixD(dim);
+    MatrixD a = newMatrixD(dim, dim);
+    for (int i = 0; i < (int) dim; ++i) {
+        for (int j = 0; j < (int) dim; ++j) {
+            a.matrix[i][j] = exp(-((double) (i - j) * (double) (i - j)));
+        }
+    }
+
+    MatrixD b = inverseMatrixD(I);
+    if (!equalsMatrixD(I, b, 0)) {
+        printf("FAILED Test_inverseMatrixD (inverse of identity)\n");
+        status = 1;
+    }
+
+    freeMatrixD(&b);
+    b = inverseMatrixD(a);
+    MatrixD c = newMatrixD(dim, dim);
+    MatrixD d = newMatrixD(dim, dim);
+    multiplyMatrixD(&c, &a, &b);
+    multiplyMatrixD(&d, &b, &a);
+    if (!equalsMatrixD(I, c, 1e-10)) {
+        printf("FAILED Test_inverseMatrixD (right inverse)\n");
+        status = 1;
+    }
+    if (!equalsMatrixD(I, d, 1e-10)) {
+        printf("FAILED Test_inverseMatrixD (left inverse)\n");
+        status = 1;
+    }
+
+    freeMatrixD(&I);
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+    freeMatrixD(&c);
+    freeMatrixD(&d);
+
+    if (status == 0) printf("PASSED Test_inverseMatrixD\n");
 
     return status;
 }
