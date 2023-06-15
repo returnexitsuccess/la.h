@@ -761,6 +761,9 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
             if (j == augmented.cols - 1) {
                 if ((fabs(augmented.matrix[i][j]) >= DBL_EPSILON) && !foundPivot) {
                     // inconsistent
+                    freeMatrixD(&sol);
+                    freeMatrixD(&augmented);
+                    free(freeColumns);
                     return -1;
                 } else if (!foundPivot) {
                     // row of all zeros

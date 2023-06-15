@@ -21,6 +21,11 @@ static int Test_fastDeterminantMatrixD();
 static int Test_appendMatrixD();
 
 static int Test_inverseMatrixD();
+static int Test_transposeMatrixD();
+static int Test_normMatrixD();
+static int Test_solveLinearMatrixD();
+
+static int Test_strassenMultiplyMatrixD();
 
 int main() {
     int status = 0;
@@ -45,6 +50,11 @@ int main() {
     status |= Test_appendMatrixD();
 
     status |= Test_inverseMatrixD();
+    status |= Test_transposeMatrixD();
+    status |= Test_normMatrixD();
+    status |= Test_solveLinearMatrixD();
+
+    status |= Test_strassenMultiplyMatrixD();
 
     printf("----------------------------------------\n");
 
@@ -702,6 +712,151 @@ static int Test_inverseMatrixD() {
     freeMatrixD(&d);
 
     if (status == 0) printf("PASSED Test_inverseMatrixD\n");
+
+    return status;
+}
+
+static int Test_transposeMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD a = newMatrixD(dim, 1);
+    for (size_t i = 0; i < dim; ++i) {
+        a.matrix[i][0] = (double) (i * i + i + 1);
+    }
+
+    MatrixD b = transposeMatrixD(a);
+
+    if (b.rows != 1 || b.cols != dim) {
+        printf("FAILED Test_transposeMatrixD (wrong size)\n");
+        status = 1;
+    }
+
+    for (size_t j = 0; j < dim; ++j) {
+        if (b.matrix[0][j] != (double) (j * j + j + 1)) {
+            printf("FAILED Test_transposeMatrixD (wrong values)\n");
+            status = 1;
+            break;
+        }
+    }
+
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+
+    if (status == 0) printf("PASSED Test_transposeMatrixD\n");
+
+    return status;
+}
+
+static int Test_normMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD a = newMatrixD(dim, dim);
+    for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+            a.matrix[i][j] = ((i + j) % 2 == 0) ? 1 : -1;
+        }
+    }
+
+    if (normMatrixD(a, ONE_NORM) != dim * dim) {
+        printf("FAILED Test_normMatrixD (one_norm)\n");
+        status = 1;
+    }
+
+    if (normMatrixD(a, TWO_NORM) != dim) {
+        printf("FAILED Test_normMatrixD (two_norm)\n");
+        status = 1;
+    }
+
+    if (normMatrixD(a, INF_NORM) != 1) {
+        printf("FAILED Test_normMatrixD (inf_norm)\n");
+        status = 1;
+    }
+
+    freeMatrixD(&a);
+
+    if (status == 0) printf("PASSED Test_normMatrixD\n");
+
+    return status;
+}
+
+static int Test_solveLinearMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD a = newMatrixD(dim, dim);
+    for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+            a.matrix[i][j] = 1;
+        }
+    }
+    MatrixD e1 = newMatrixD(dim, 1);
+    e1.matrix[0][0] = 1;
+
+    MatrixD *x = malloc(sizeof(MatrixD));
+    MatrixD *N = malloc(sizeof(MatrixD));
+    int result;
+
+    result = solveLinearMatrixD(a, e1, x, N);
+    if (result != -1) {
+        printf("FAILED Test_solveLinearMatrixD (no solution)\n");
+        status = 1;
+    }
+
+    MatrixD I = identityMatrixD(dim);
+    result = solveLinearMatrixD(I, e1, x, N);
+    if (result != 0) {
+        printf("FAILED Test_solveLinearMatrixD (one solution)\n");
+        status = 1;
+    }
+    if (!equalsMatrixD(e1, *x, 0)) {
+        printf("FAILED Test_solveLinearMatrixD (wrong solution)\n");
+        status = 1;
+    }
+
+    freeMatrixD(&a);
+    freeMatrixD(&e1);
+    freeMatrixD(&I);
+    freeMatrixD(x);
+    freeMatrixD(N);
+    free(x);
+    free(N);
+
+    if (status == 0) printf("PASSED Test_solveLinearMatrixD\n");
+
+    return status;
+}
+
+static int Test_strassenMultiplyMatrixD() {
+    int status = 0;
+    size_t dim = 10;
+
+    MatrixD a = newMatrixD(dim, dim);
+    MatrixD b = newMatrixD(dim, dim);
+    for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+            a.matrix[i][j] = (double) (i * i * j);
+            b.matrix[i][j] = (double) (2 * i + j);
+        }
+    }
+
+    MatrixD c1 = newMatrixD(dim, dim);
+    MatrixD c2 = newMatrixD(dim, dim);
+    multiplyMatrixD(&c1, &a, &b);
+    strassenMultiplyMatrixD(&c2, &a, &b);
+
+    if (!equalsMatrixD(c1, c2, DBL_EPSILON)) {
+        printf("FAILED Test_strassenMultiplyMatrixD (incorrect value)\n");
+        status = 1;
+    }
+
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+    freeMatrixD(&c1);
+    freeMatrixD(&c2);
+
+    if (status == 0) printf("PASSED Test_strassenMultiplyMatrixD\n");
 
     return status;
 }
