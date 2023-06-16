@@ -67,6 +67,11 @@ void _updateSubtractBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b);
 _BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
 _BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b);
 
+void eigensMatrixD(MatrixD *a, MatrixD *lambda, MatrixD *v);
+void _twoByTwoEigenvaluesMatrixD(MatrixD *m, MatrixD *lambda);
+double _eigenvalueIterationMatrixD(MatrixD *a, MatrixD *vi, double lambda);
+void _complexEigenvectorsMatrixD(MatrixD *a, MatrixD *v, double real, double imag);
+
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
     double** mat = malloc(sizeof(double*) * rows);
@@ -438,14 +443,10 @@ void reducedEchelonMatrixD(MatrixD *m) {
     size_t pivots = 0;
     for (size_t col = 0; col < m->cols; ++col) {
         size_t row = pivots;
-        while (m->matrix[row][col] == 0) { // TODO: select pivot based on largest element
-            row++;
-            if (row >= m->rows) {
-                row = m->rows - 1;
-                break;
-            }
+        for (size_t i = pivots + 1; i < m->rows; ++i) {
+            if (fabs(m->matrix[i][col]) > fabs(m->matrix[row][col])) row = i;
         }
-        if (m->matrix[row][col] != 0) {
+        if (fabs(m->matrix[row][col]) > 1e-10) {
             _swapRowMatrixD(m, pivots, row);
             _scaleRowMatrixD(m, 1 / m->matrix[pivots][col], pivots);
             for (size_t i = 0; i < m->rows; ++i) {
@@ -454,6 +455,10 @@ void reducedEchelonMatrixD(MatrixD *m) {
                 m->matrix[i][col] = 0; // manually set to avoid error
             }
             pivots++;
+        } else {
+            for (size_t i = pivots; i < m->rows; ++i) {
+                m->matrix[i][col] = 0; // manually set to avoid error
+            }
         }
         
         if (pivots == m->rows) break;
@@ -1164,4 +1169,225 @@ _BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
 
     _BlockMatrixD c = { dim, dim, 0, 0, matrix };
     return c;
+}
+
+// Computes eigenvalues of nxn matrix a and stores them in nx2 matrix lambda
+// Computes eigenvectors of nxn matrix a and stores them in nxn matrix v
+// The first and second column of lambda are the real and imaginary parts of the eigenvalues
+void eigensMatrixD(MatrixD *a, MatrixD *lambda, MatrixD *v) {
+    if (a->rows != a->cols) {
+        fprintf(stderr, "Error: Cannot compute eigenvalues of non-square matrix of shape (%lu, %lu)\n", a->rows, a->cols);
+        exit(1);
+    }
+
+    if (a->rows != lambda->rows || lambda->cols != 2) {
+        fprintf(stderr, "Error: Cannot store eigenvalue matrix of shape (%lu, 2) in matrix of shape (%lu, %lu)\n", a->rows, lambda->rows, lambda->cols);
+    }
+
+    if (v->rows != a->rows || v->cols != a->cols) {
+        fprintf(stderr, "Error: Cannot store eigenvector matrix of shape (%lu, %lu) in matrix of shape (%lu, %lu)\n", a->rows, a->cols, v->rows, v->cols);
+        exit(1);
+    }
+
+    MatrixD *d = malloc(sizeof(MatrixD));
+    MatrixD *p = malloc(sizeof(MatrixD));
+    qrAlgorithmMatrixD(*a, 100, d, p);
+
+    MatrixD vi;
+    MatrixD b;
+    MatrixD lambda2 = newMatrixD(2, 2);
+
+    size_t i = 0;
+    while (i < a->rows) {
+        if (i == a->rows - 1 || fabs(d->matrix[i+1][i]) < 1e-10) {
+            // real eigenvalue
+            vi = _submatrixMatrixD(*p, 0, i, p->rows, 1);
+            
+            lambda->matrix[i][0] = _eigenvalueIterationMatrixD(a, &vi, d->matrix[i][i]);
+            lambda->matrix[i][1] = 0;
+
+            for (size_t j = 0; j < vi.rows; ++j) {
+                v->matrix[j][i] = vi.matrix[j][0];
+            }
+
+            freeMatrixD(&vi);
+            i += 1;
+        } else {
+            // complex eigenvalue
+            b = _submatrixMatrixD(*d, i, i, 2, 2);
+            _twoByTwoEigenvaluesMatrixD(&b, &lambda2);
+
+            for (size_t row = 0; row < 2; ++row) {
+                for (size_t col = 0; col < 2; ++col) {
+                    lambda->matrix[i + row][col] = lambda2.matrix[row][col];
+                }
+            }
+
+            vi = newMatrixD(a->rows, 2);
+            _complexEigenvectorsMatrixD(a, &vi, lambda2.matrix[0][0], lambda2.matrix[0][1]);
+
+            for (size_t j = 0; j < vi.rows; ++j) {
+                v->matrix[j][i] = vi.matrix[j][0];
+                v->matrix[j][i + 1] = vi.matrix[j][1];
+            }
+
+            freeMatrixD(&b);
+            freeMatrixD(&vi);
+            i += 2;
+        }
+    }
+
+    freeMatrixD(&lambda2);
+    freeMatrixD(d);
+    freeMatrixD(p);
+    free(d);
+    free(p);
+}
+
+void _twoByTwoEigenvaluesMatrixD(MatrixD *m, MatrixD *lambda) {
+    if (m->rows != 2 || m->cols != 2) {
+        fprintf(stderr, "Error: Cannot compute eigenvalues of matrix with shape (%lu, %lu) which is not 2x2\n", m->rows, m->cols);
+        exit(1);
+    }
+
+    if (lambda->rows != 2 || lambda->cols != 2) {
+        fprintf(stderr, "Error: Cannot store eigenvalues in matrix of shape (%lu, %lu) which is not 2x2\n", lambda->rows, lambda->cols);
+        exit(1);
+    }
+
+    // x^2 - trace * x + det
+    double trace = m->matrix[0][0] + m->matrix[1][1];
+    double det = m->matrix[0][0] * m->matrix[1][1] - m->matrix[0][1] * m->matrix[1][0];
+    double disc = trace * trace - 4 * det;
+    if (disc >= 0) {
+        // real eigenvalues
+        lambda->matrix[0][0] = (trace + sqrt(disc)) / 2;
+        lambda->matrix[0][1] = 0;
+        lambda->matrix[1][0] = (trace - sqrt(disc)) / 2;
+        lambda->matrix[1][1] = 0;
+    } else {
+        // complex eigenvalues
+        lambda->matrix[0][0] = trace / 2;
+        lambda->matrix[0][1] = sqrt(-disc) / 2;
+        lambda->matrix[1][0] = trace / 2;
+        lambda->matrix[1][1] = -sqrt(-disc) / 2;
+    }
+}
+
+double _eigenvalueIterationMatrixD(MatrixD *a, MatrixD *vi, double lambda) {
+    if (a->rows != a->cols) {
+        fprintf(stderr, "Error: Cannot iterate eigenvalue of non-square matrix of shape (%lu, %lu)\n", a->rows, a->cols);
+        exit(1);
+    }
+
+    if (vi->rows != a->rows || vi->cols != 1) {
+        fprintf(stderr, "Error: Cannot iterate on eigenvector of shape (%lu, %lu)\n", vi->rows, vi->cols);
+        exit(1);
+    }
+
+    size_t iterations = 100;
+    MatrixD A = newMatrixD(a->rows, a->cols);
+    MatrixD I = identityMatrixD(a->rows);
+    MatrixD Ainv;
+
+    scaleMatrixD(&A, -lambda, &I);
+    addMatrixD(&A, a, &A);
+    MatrixD *x = malloc(sizeof(MatrixD));
+    MatrixD *N = malloc(sizeof(MatrixD));
+    MatrixD zero = newMatrixD(a->rows, 1);
+    int dims = solveLinearMatrixD(A, zero, x, N);
+    if (dims >= 1) {
+        for (size_t i = 0; i < vi->rows; ++i) {
+            vi->matrix[i][0] = N->matrix[i][0]; // TODO: Handle eigenspace of dimension >1
+        }
+        scaleMatrixD(vi, 1 / normMatrixD(*vi, TWO_NORM), vi);
+    } else {
+        Ainv = inverseMatrixD(A);
+        for (size_t k = 0; k < iterations; ++k) {
+            multiplyMatrixD(vi, &Ainv, vi);
+            scaleMatrixD(vi, 1 / normMatrixD(*vi, TWO_NORM), vi);
+        }
+        freeMatrixD(&Ainv);
+
+        MatrixD avi = newMatrixD(a->rows, 1);
+        MatrixD lambdaM = newMatrixD(1, 1);
+
+        multiplyMatrixD(&avi, a, vi);
+        innerProductMatrixD(&lambdaM, vi, &avi);
+        lambda = lambdaM.matrix[0][0];
+
+        freeMatrixD(&avi);
+        freeMatrixD(&lambdaM);
+    }
+
+    freeMatrixD(&A);
+    freeMatrixD(&I);
+    freeMatrixD(&zero);
+    freeMatrixD(x);
+    freeMatrixD(N);
+    free(x);
+    free(N);
+
+    return lambda;
+}
+
+void _complexEigenvectorsMatrixD(MatrixD *a, MatrixD *v, double real, double imag) {
+    if (a->rows != a->cols) {
+        fprintf(stderr, "Error: Cannot compute eigenvectors of non-square matrix of shape (%lu, %lu)\n", a->rows, a->cols);
+        exit(1);
+    }
+
+    if (v->rows != a->rows || v->cols != 2) {
+        fprintf(stderr, "Error: Cannot store eigenvector matrix of shape (%lu, 2) in matrix of shape (%lu, %lu)\n", a->rows, v->rows, v->cols);
+        exit(1);
+    }
+
+    MatrixD I = identityMatrixD(a->rows);
+    scaleMatrixD(&I, real * real + imag * imag, &I);
+    MatrixD A2 = newMatrixD(a->rows, a->cols);
+    scaleMatrixD(&A2, -2 * real, a);
+    addMatrixD(&A2, &A2, &I);
+    addMultiplyMatrixD(&A2, a, a);
+
+    MatrixD *x = malloc(sizeof(MatrixD));
+    MatrixD *U = malloc(sizeof(MatrixD));
+    MatrixD zero = newMatrixD(a->rows, 1);
+
+    int dims = solveLinearMatrixD(A2, zero, x, U);
+    if (dims != 2) {
+        fprintf(stderr, "Error: A2 has null space of dimension %d instead of dimension 2\n", dims);
+        exit(1);
+    }
+
+    MatrixD ip = newMatrixD(2, 2);
+    innerProductMatrixD(&ip, U, U);
+    MatrixD B = inverseMatrixD(ip);
+
+    MatrixD aU = newMatrixD(U->rows, U->cols);
+    multiplyMatrixD(&aU, a, U);
+    MatrixD UtaU = newMatrixD(2, 2);
+    innerProductMatrixD(&UtaU, U, &aU);
+    multiplyMatrixD(&B, &B, &UtaU);
+
+    MatrixD P = newMatrixD(2, 2);
+    P.matrix[0][0] = real - B.matrix[1][1];
+    P.matrix[0][1] = imag;
+    P.matrix[1][0] = B.matrix[1][0];
+    P.matrix[1][1] = 0;
+
+    multiplyMatrixD(v, U, &P);
+    scaleMatrixD(v, 1 / normMatrixD(*v, TWO_NORM), v);
+
+    freeMatrixD(&I);
+    freeMatrixD(&A2);
+    freeMatrixD(x);
+    freeMatrixD(U);
+    free(x);
+    free(U);
+    freeMatrixD(&zero);
+    freeMatrixD(&ip);
+    freeMatrixD(&B);
+    freeMatrixD(&aU);
+    freeMatrixD(&UtaU);
+    freeMatrixD(&P);
 }

@@ -79,6 +79,28 @@ int main() {
     displayMatrixD(*p);
 
 
+    MatrixD lambda = newMatrixD(a.rows, 2);
+    MatrixD v = newMatrixD(a.rows, a.cols);
+    eigensMatrixD(&a, &lambda, &v);
+    printf("Eigenvalues of A:\n");
+    displayMatrixD(lambda);
+    printf("Corresponding Eigenvectors:\n");
+    displayMatrixD(v);
+
+    MatrixD vinv = inverseMatrixD(v);
+    MatrixD D = newMatrixD(a.rows, a.cols);
+    multiplyMatrixD(&D, &a, &v);
+    multiplyMatrixD(&D, &vinv, &D);
+    printf("Computed Jordan Form of A:\n");
+    displayMatrixD(D);
+
+    freeMatrixD(&vinv);
+    freeMatrixD(&D);
+    
+    freeMatrixD(&lambda);
+    freeMatrixD(&v);
+
+
     printf("----------------------------------------\n\n");
 
     MatrixD *x = malloc(sizeof(MatrixD));
@@ -122,7 +144,7 @@ int main() {
     freeMatrixD(&A);
     MatrixD B, C1, C2, Cdiff;
 
-    size_t maxDim = 512; // Set to 4096 takes ~10 minutes
+    size_t maxDim = 128; // Set to 4096 takes ~10 minutes
     for (size_t dim = 64; dim <= maxDim; dim *= 2) {
         A = newMatrixD(dim, dim);
         for (size_t i = 0; i < A.rows; ++i) {
