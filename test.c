@@ -1,4 +1,3 @@
-#include <assert.h>
 #include "la.h"
 
 static int Test_newMatrixD();

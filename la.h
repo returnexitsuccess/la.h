@@ -755,7 +755,7 @@ int solveLinearMatrixD(MatrixD A, MatrixD b, MatrixD *x, MatrixD *N) {
     MatrixD null;
     size_t pivots = augmented.rows;
     bool foundPivot;
-    size_t lastNullColumn;
+    size_t lastNullColumn = 0; // shouldn't need to be initialized but avoids maybe-uninitialized compiler error
     size_t lastPivotColumn = augmented.cols - 1;
     size_t *freeColumns = malloc(sizeof(size_t) * (A.cols));
     for (int i = (int) augmented.rows - 1; i >= 0; --i) {
