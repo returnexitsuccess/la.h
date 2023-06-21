@@ -69,25 +69,28 @@ int main() {
 
 static int Test_newMatrixD() {
     int status = 0;
-    size_t dim = 10;
 
-    MatrixD a = newMatrixD(dim, dim);
-    if (a.rows != dim || a.cols != dim) {
-        printf("FAILED Test_newMatrixD (row and column size)\n");
-        status = 1;
-    }
-    for (size_t i = 0; i < dim; ++i) {
-        for (size_t j = 0; j < dim; ++j) {
-            if (a.matrix[i][j] != 0) {
-                printf("FAILED Test_newMatrixD (not all values zero)\n");
-                status = 1;
-                break;
-            }
+    for (size_t dim = 0; dim <= 10; ++dim) {
+        MatrixD a = newMatrixD(dim, dim);
+        if (a.rows != dim || a.cols != dim) {
+            printf("FAILED Test_newMatrixD (row and column size)\n");
+            status = 1;
         }
+        for (size_t i = 0; i < dim; ++i) {
+            for (size_t j = 0; j < dim; ++j) {
+                if (a.matrix[i][j] != 0) {
+                    printf("FAILED Test_newMatrixD (not all values zero)\n");
+                    status = 1;
+                    break;
+                }
+            }
+            if (status == 1) break;
+        }
+
+        freeMatrixD(&a);
+
         if (status == 1) break;
     }
-
-    freeMatrixD(&a);
 
     if (status == 0) printf("PASSED Test_newMatrixD\n");
 

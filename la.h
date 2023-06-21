@@ -75,17 +75,16 @@ void _complexEigenvectorsMatrixD(MatrixD *a, MatrixD *v, double real, double ima
 
 MatrixD newMatrixD(size_t rows, size_t cols) {
     double** mat = malloc(sizeof(double*) * rows);
-    for (size_t i = 0; i < rows; ++i) {
-        mat[i] = calloc(cols, sizeof(double));
+    if (rows > 0) mat[0] = calloc(cols * rows, sizeof(double));
+    for (size_t i = 1; i < rows; ++i) {
+        mat[i] = mat[0] + i * cols;
     }
     MatrixD m = {rows, cols, mat};
     return m;
 }
 
 void freeMatrixD(MatrixD *a) {
-    for (size_t i = 0; i < a->rows; ++i) {
-        free(a->matrix[i]);
-    }
+    if (a->rows > 0) free(a->matrix[0]);
     free(a->matrix);
     a->matrix = NULL;
 }
