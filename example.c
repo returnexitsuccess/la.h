@@ -51,7 +51,8 @@ int main() {
     printf("Echelon form of a:\n");
     displayMatrixD(a_echelon);
 
-    MatrixD ainv = inverseMatrixD(a);
+    MatrixD ainv = newMatrixD(a.rows, a.cols);
+    inverseMatrixD(&ainv, &a);
     printf("Inverse of a:\n");
     displayMatrixD(ainv);
 
@@ -87,7 +88,8 @@ int main() {
     printf("Corresponding Eigenvectors:\n");
     displayMatrixD(v);
 
-    MatrixD vinv = inverseMatrixD(v);
+    MatrixD vinv = newMatrixD(v.rows, v.cols);
+    inverseMatrixD(&vinv, &v);
     MatrixD D = newMatrixD(a.rows, a.cols);
     multiplyMatrixD(&D, &a, &v);
     multiplyMatrixD(&D, &vinv, &D);

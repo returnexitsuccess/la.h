@@ -124,10 +124,8 @@ double benchmarkDeterminant(size_t dim, size_t iterations) {
 }
 
 double benchmarkInverse(size_t dim, size_t iterations) {
-    double sum = 0;
-
     MatrixD a = newMatrixD(dim, dim);
-    MatrixD b;
+    MatrixD b = newMatrixD(dim, dim);
 
     for (size_t i = 0; i < dim; ++i) {
         for (size_t j = 0; j < dim; ++j) {
@@ -137,15 +135,16 @@ double benchmarkInverse(size_t dim, size_t iterations) {
 
     clock_t t0, t1;
 
+    t0 = clock();
+
     for (size_t k = 0; k < iterations; ++k) {
-        t0 = clock();
-        b = inverseMatrixD(a);
-        t1 = clock();
-        sum += (double) (t1 - t0);
-        freeMatrixD(&b);
+        inverseMatrixD(&b, &a);
     }
 
-    freeMatrixD(&a);
+    t1 = clock();
 
-    return sum / CLOCKS_PER_SEC;
+    freeMatrixD(&a);
+    freeMatrixD(&b);
+
+    return (double) (t1 - t0) / CLOCKS_PER_SEC;
 }

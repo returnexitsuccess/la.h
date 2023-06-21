@@ -48,7 +48,7 @@ double fastDeterminantMatrixD(MatrixD m);
 void reducedEchelonMatrixD(MatrixD *m);
 void _scaleRowMatrixD(MatrixD *m, double k, size_t row);
 
-MatrixD inverseMatrixD(MatrixD m);
+void inverseMatrixD(MatrixD *inv, MatrixD *m);
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width);
 MatrixD transposeMatrixD(MatrixD m);
 double normMatrixD(MatrixD m, int norm_type);
@@ -475,21 +475,35 @@ void _scaleRowMatrixD(MatrixD *m, double k, size_t row) {
     }
 }
 
-MatrixD inverseMatrixD(MatrixD m) {
-    if (m.rows != m.cols) {
-        fprintf(stderr, "Error: Cannot compute inverse of non-square matrix with shape (%lu, %lu)\n", m.rows, m.cols);
+// Computes the inverse of m and stores it in inv
+void inverseMatrixD(MatrixD *inv, MatrixD *m) {
+    if (m->rows != m->cols) {
+        fprintf(stderr, "Error: Cannot compute inverse of non-square matrix with shape (%lu, %lu)\n", m->rows, m->cols);
         exit(1);
     }
 
-    MatrixD I = identityMatrixD(m.rows);
-    MatrixD a = appendMatrixD(m, I);
+    if (m->rows != inv->rows || m->cols != inv->cols) {
+        fprintf(stderr, "Error: Cannot store inverse of shape (%lu, %lu) into matrix of shape (%lu, %lu)\n", m->rows, m->cols, inv->rows, inv->cols);
+        exit(1);
+    }
+
+    MatrixD a = newMatrixD(m->rows, 2 * m->cols);
+    for (size_t i = 0; i < m->rows; ++i) {
+        for (size_t j = 0; j < m->cols; ++j) {
+            a.matrix[i][j] = m->matrix[i][j];
+        }
+        a.matrix[i][i + m->rows] = 1;
+    }
+
     reducedEchelonMatrixD(&a);
-    MatrixD inv = _submatrixMatrixD(a, 0, m.rows, m.rows, m.rows);
 
-    freeMatrixD(&I);
+    for (size_t i = 0; i < inv->rows; ++i) {
+        for (size_t j = 0; j < inv->cols; ++j) {
+            inv->matrix[i][j] = a.matrix[i][j + m->rows];
+        }
+    }
+
     freeMatrixD(&a);
-
-    return inv;
 }
 
 MatrixD _submatrixMatrixD(MatrixD m, size_t row, size_t col, size_t height, size_t width) {
@@ -1301,7 +1315,8 @@ double _eigenvalueIterationMatrixD(MatrixD *a, MatrixD *vi, double lambda) {
         }
         scaleMatrixD(vi, 1 / normMatrixD(*vi, TWO_NORM), vi);
     } else {
-        Ainv = inverseMatrixD(A);
+        Ainv = newMatrixD(A.rows, A.cols);
+        inverseMatrixD(&Ainv, &A);
         for (size_t k = 0; k < iterations; ++k) {
             multiplyMatrixD(vi, &Ainv, vi);
             scaleMatrixD(vi, 1 / normMatrixD(*vi, TWO_NORM), vi);
@@ -1360,7 +1375,8 @@ void _complexEigenvectorsMatrixD(MatrixD *a, MatrixD *v, double real, double ima
 
     MatrixD ip = newMatrixD(2, 2);
     innerProductMatrixD(&ip, U, U);
-    MatrixD B = inverseMatrixD(ip);
+    MatrixD B = newMatrixD(ip.rows, ip.cols);
+    inverseMatrixD(&B, &ip);
 
     MatrixD aU = newMatrixD(U->rows, U->cols);
     multiplyMatrixD(&aU, a, U);

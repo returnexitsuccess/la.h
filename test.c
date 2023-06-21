@@ -686,14 +686,14 @@ static int Test_inverseMatrixD() {
         }
     }
 
-    MatrixD b = inverseMatrixD(I);
+    MatrixD b = newMatrixD(dim, dim);
+    inverseMatrixD(&b, &I);
     if (!equalsMatrixD(I, b, 0)) {
         printf("FAILED Test_inverseMatrixD (inverse of identity)\n");
         status = 1;
     }
 
-    freeMatrixD(&b);
-    b = inverseMatrixD(a);
+    inverseMatrixD(&b, &a);
     MatrixD c = newMatrixD(dim, dim);
     MatrixD d = newMatrixD(dim, dim);
     multiplyMatrixD(&c, &a, &b);
