@@ -17,8 +17,11 @@ int main() {
     printf("| Test                                     | Time Taken |\n");
     printf("| ---------------------------------------- | ---------- |\n");
 
-    t = benchmarkMultiply(10, 100000);
-    printf("| 10x10 multiply, 100,000 iterations       | %fs  |\n", t);
+    t = benchmarkMultiply(10, 1000000);
+    printf("| 10x10 multiply, 1,000,000 iterations     | %fs  |\n", t);
+
+    t = benchmarkMultiply(100, 1000);
+    printf("| 100x100 multiply, 1,000 iterations       | %fs  |\n", t);
 
     t = benchmarkMultiply(1000, 1);
     printf("| 1000x1000 multiply, 1 iteration          | %fs  |\n", t);
@@ -27,13 +30,13 @@ int main() {
     printf("| 1000x1000 strassen multiply, 1 iteration | %fs  |\n", t);
 
     t = benchmarkDeterminant(100, 1000);
-    printf("| 100x100 determinant, 1000 iterations     | %fs  |\n", t);
+    printf("| 100x100 determinant, 1,000 iterations    | %fs  |\n", t);
 
     t = benchmarkDeterminant(1000, 1);
     printf("| 1000x1000 determinant, 1 iteration       | %fs  |\n", t);
 
-    t = benchmarkInverse(100, 100);
-    printf("| 100x100 inverse, 100 iterations          | %fs  |\n", t);
+    t = benchmarkInverse(100, 1000);
+    printf("| 100x100 inverse, 1,000 iterations        | %fs  |\n", t);
 
     t = benchmarkInverse(1000, 1);
     printf("| 1000x1000 inverse, 1 iteration           | %fs  |\n", t);
