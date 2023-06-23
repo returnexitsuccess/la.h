@@ -1056,7 +1056,7 @@ void _updateSubtractBlockMatrixD(_BlockMatrixD *a, _BlockMatrixD b) {
 }
 
 _BlockMatrixD _strassenMultiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
-    size_t maxSize = 128;
+    size_t maxSize = 64;
     if (a.rows < maxSize || a.cols < maxSize || b.rows < maxSize || b.cols < maxSize) {
         return _multiplyBlockMatrixD(a, b);
     }
