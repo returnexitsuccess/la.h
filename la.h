@@ -181,12 +181,15 @@ void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
         exit(1);
     }
 
-    if (c == a || c == b) {
+    // pre-compute transpose of b to allow for better sequential memory access
+    MatrixD bT = transposeMatrixD(*b);
+
+    if (c == a) {
         MatrixD m = newMatrixD(c->rows, c->cols);
         for (size_t i = 0; i < a->rows; ++i) {
             for (size_t j = 0; j < b->cols; ++j) {
                 for (size_t k = 0; k < a->cols; ++k) {
-                    m.matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+                    m.matrix[i][j] += a->matrix[i][k] * bT.matrix[j][k];
                 }
             }
         }
@@ -201,11 +204,13 @@ void multiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
             for (size_t j = 0; j < b->cols; ++j) {
                 c->matrix[i][j] = 0;
                 for (size_t k = 0; k < a->cols; ++k) {
-                    c->matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+                    c->matrix[i][j] += a->matrix[i][k] * bT.matrix[j][k];
                 }
             }
         }
     }
+
+    freeMatrixD(&bT);
 }
 
 // c = c + a * b
@@ -220,13 +225,18 @@ void addMultiplyMatrixD(MatrixD *c, MatrixD *a, MatrixD *b) {
         exit(1);
     }
 
+    // pre-compute transpose of b to allow for better sequential memory access
+    MatrixD bT = transposeMatrixD(*b);
+
     for (size_t i = 0; i < a->rows; ++i) {
         for (size_t j = 0; j < b->cols; ++j) {
             for (size_t k = 0; k < a->cols; ++k) {
-                c->matrix[i][j] += a->matrix[i][k] * b->matrix[k][j];
+                c->matrix[i][j] += a->matrix[i][k] * bT.matrix[j][k];
             }
         }
     }
+
+    freeMatrixD(&bT);
 }
 
 // y = k * a
@@ -1160,6 +1170,18 @@ _BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
     size_t cols = (a.cols > b.cols) ? a.cols : b.cols; // maximum
     size_t dim = (rows > cols) ? rows : cols;
 
+    // pre-compute transpose of b to allow for better sequential memory access
+    MatrixD bT = newMatrixD(dim, dim);
+    for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+            if (i >= b.cols || j >= b.rows) {
+                bT.matrix[i][j] = 0;
+            } else {
+                bT.matrix[i][j] = b.matrix[j + b.rowOffset][i + b.colOffset];
+            }
+        }
+    }
+
     double **matrix = malloc(sizeof(double*) * dim);
     for (size_t i = 0; i < dim; ++i) {
         matrix[i] = malloc(sizeof(double) * dim);
@@ -1172,13 +1194,15 @@ _BlockMatrixD _multiplyBlockMatrixD(_BlockMatrixD a, _BlockMatrixD b) {
                 double sum = 0;
                 for (size_t k = 0; k < dim; ++k) {
                     if (k < a.cols && k < b.rows) {
-                        sum += a.matrix[i + a.rowOffset][k + a.colOffset] * b.matrix[k + b.rowOffset][j + b.colOffset];
+                        sum += a.matrix[i + a.rowOffset][k + a.colOffset] * bT.matrix[j][k];
                     }
                 }
                 matrix[i][j] = sum;
             }
         }
     }
+
+    freeMatrixD(&bT);
 
     _BlockMatrixD c = { dim, dim, 0, 0, matrix };
     return c;
